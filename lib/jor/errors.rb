@@ -11,14 +11,20 @@ module JOR
   
   class TypeNotSupported < Error
     def initialize(class_name)
-      super %(Type #{class_name} not supported")
+      super %(Type #{class_name} not supported)
     end
   end
   
   class InvalidFieldName < Error
     def initialize(field)
-      super %(Invalid character in field name "#{field}". Cannot start with '_' or '$'")
+      super %(Invalid character in field name "#{field}". Cannot start with '_' or '$')
     end
-  end  
+  end
+  
+  class IncompatibleSelectors < Error
+    def initialize(str)
+      super %(Incompatible selectors in "#{str}". They must be grouped like this #{Storage::SELECTORS})
+    end
+  end
 
 end

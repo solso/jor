@@ -2,11 +2,18 @@
 module JOR
   class Storage
   
-    SELECTORS = ["$gt","$gte","$lt","$gte","$in","$all"]
-  
+    SELECTORS = {
+      :compare => ["$gt","$gte","$lt","$lte"],
+      :sets => ["$in"],
+      :boolean => []
+    }
+    
+    SELECTORS_ALL = SELECTORS.keys.inject([]) { |sel, element| sel | SELECTORS[element] } 
+    
+    
     def initialize(redis = nil)
       redis = Redis.new() if redis.nil?
-      @redis  = ::Redis::Namespace.new(:jor, :redis => redis)
+      @redis  = Redis::Namespace.new(:jor, :redis => redis)
       @redis
     end
     
@@ -17,8 +24,8 @@ module JOR
       
       paths = Doc.paths("$",doc)
 
-      @redis.multi do 
-        @redis.set("jor/docs/#{id}",enc_doc)
+      redis.multi do 
+        redis.set("jor/docs/#{id}",enc_doc)
         paths.each do |path|
          add_index(path,id) 
         end
@@ -39,7 +46,6 @@ module JOR
    
         ## for now, consider all logical and
         paths.each_with_index do |path, i|
-          
           tmp_res = fetch_ids_by_index(path)
           if i==0
             ids = tmp_res
@@ -53,21 +59,19 @@ module JOR
       ## fetch the docs by id now. Pagination (cursor) should go here.
       ## also, consider returning the list of id's as options
       
-      results = @redis.pipelined do
+      return [] if ids.nil? || ids.size==0
+      
+      results = redis.pipelined do
         ids.each do |id|
-          @redis.get("jor/docs/#{id}")
+          redis.get("jor/docs/#{id}")
         end
       end
       
-      raise NoResults.new(doc) if results.nil? || results.size==0 
-
+      return [] if results.nil? || results.size==0  
+      #raise NoResults.new(doc) if results.nil? || results.size==0 
       results.map! { |item| JSON::parse(item) }
       
-      if !options[:all].nil? && options[:all]==true
-        results
-      else
-        results.first
-      end
+      return results
     end
     
     def redis
@@ -77,35 +81,72 @@ module JOR
     protected
     
     def next_id
-      @redis.incrby("jor/next_id",1)
+      redis.incrby("jor/next_id",1)
     end
     
+    def find_docs(doc)
+      return [doc["_id"]] if !doc["_id"].nil?
+    
+      ids = []
+      paths = Doc.paths("$",doc)
+      
+      ## for now, consider all logical and
+      paths.each_with_index do |path, i|
+        tmp_res = fetch_ids_by_index(path)
+        if i==0
+          ids = tmp_res
+        else
+          ids = ids & tmp_res
+        end
+      end
+      ids
+    end
+
+    def check_selectors(sel)
+      Storage::SELECTORS.each do |type, set|        
+        istrue = true
+        sel.each do |s|
+          istrue = istrue && set.member?(s)
+        end
+        return type if istrue
+      end
+      raise IncompatibleSelectors.new(selectors)      
+    end
+
+
     def fetch_ids_by_index(path)
       
       if path["selector"]==true
-        h = path["obj"]
+        ## there is a selector
         
-        rmin = nil
-        rmax = nil
+        type = check_selectors(path["obj"].keys)
         
-        rmax ||= "(#{h["$lt"]}"
-        rmax ||= "#{h["$lte"]}"
-        rmax ||= "inf"
-        rmin ||= "(#{h["$gt"]}"
-        rmin ||= "#{h["$gt"]}"
-        rmin ||= "-inf"
+        if type == :compare
+          key = idx_key(path["path_to"], Numeric)
         
+          rmin = "-inf"
+          rmin = path["obj"]["$gte"] unless path["obj"]["$gte"].nil?
+          rmin = "(#{path["obj"]["$gt"]}" unless path["obj"]["$gt"].nil?
+                    
+          rmax = "+inf"
+          rmax = path["obj"]["$lte"] unless path["obj"]["$lte"].nil?
+          rmax = "(#{path["obj"]["$lt"]}" unless path["obj"]["$lt"].nil?
+          
+          ##ZRANGEBYSCORE zset (5 (10 : 5 < x < 10          
+          return redis.zrangebyscore(key,rmin,rmax)
+          
+        elsif type == :sets
+          
+        else
+            
+        end   
       end
       
       if path["obj"].kind_of? String
-        key = "jor/idx/#{path["path_to"]}/String/#{path["obj"]}"
-        return @redis.smembers(key)
+        return redis.smembers(idx_key(path["path_to"], String, path["obj"]))
       elsif path["obj"].kind_of? Numeric
-        key = "jor/idx/#{path["path_to"]}/Number"
-        return @redis.zrangebyscore(key,path["obj"],path["obj"])
-        ##ZRANGEBYSCORE zset (5 (10 : 5 < x < 10
+        return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"]))
       elsif path["obj"].kind_of? Time
-        key = "jor/idx/#{path["path_to"]}/Time"
         return []
       else
         raise TypeNotSupported.new(value.class)
@@ -114,22 +155,38 @@ module JOR
     end
     
     def add_index(path, id)
-      key = nil
-            
-      if path["obj"].kind_of? String
-        key = "jor/idx/#{path["path_to"]}/String/#{path["obj"]}"
-        @redis.sadd(key,id)
-      elsif path["obj"].kind_of? Numeric
-        key = "jor/idx/#{path["path_to"]}/Numeric"
-        @redis.zadd(key,path["obj"],id)
-      elsif path["obj"].kind_of? Time
-        key = "jor/idx/#{path["path_to"]}/Time"
-        @redis.zadd(key,path["obj"].to_i,id)
+      if path["obj"].kind_of?(String)
+        key = idx_key(path["path_to"], String, path["obj"])
+        redis.sadd(key,id)
+        redis.sadd(idx_set_key(id), key)
+      elsif path["obj"].kind_of?(Numeric)
+        key = idx_key(path["path_to"], Numeric, path["obj"])
+        redis.sadd(key, id)
+        redis.sadd(idx_set_key(id), key)
+        key = idx_key(path["path_to"], Numeric)
+        redis.zadd(key,path["obj"], id)
+        redis.sadd(idx_set_key(id), key)
+      elsif path["obj"].kind_of?(Time)
+        key = idx_key(path["path_to"], Time, path["obj"])
+        redis.sadd(key, id)
+        redis.sadd(idx_set_key(id), key)
+        key = idx_key(path["path_to"], Time)
+        redis.zadd(key,path["obj"], id)
+        redis.sadd(idx_set_key(id), key)
       else
         raise TypeNotSupported.new(value.class)
       end
-      
-      @redis.sadd("jor/sidx/#{id}",key) unless key.nil?
     end
+    
+    def idx_key(path_to, type, obj = nil)
+      tmp = ""
+      tmp = "/#{obj}" unless obj.nil?
+      "jor/idx/#{path_to}/#{type}#{tmp}"
+    end
+    
+    def idx_set_key(id)
+      "jor/sidx/#{id}"
+    end
+
   end
 end

@@ -3,12 +3,10 @@ module JOR
   class Doc
     
     def self.paths(path,h)
-      
       if h.class==Hash
         v = []
         h.each do |k,val|
-          if JOR::Storage::SELECTORS.member?(k)
-            puts "----->"
+          if JOR::Storage::SELECTORS_ALL.member?(k)
             return [{"path_to" => path, "obj" => h, "class" => h.class, "selector" => true}]
           else
             raise InvalidFieldName.new(k) if (k!="_id") && (k[0]=="_" || k[0]=="$")
