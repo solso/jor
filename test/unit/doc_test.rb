@@ -48,8 +48,7 @@ class StorageTest < Test::Unit::TestCase
       {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
       {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
       {"path_to"=>"/list/quantity", "obj"=>15, "class"=>Fixnum}
-    ]
-    
+    ] 
     assert_equal expected_paths, paths
     
     doc = {"_id" => 1, "year" => 1898, "list" => {"quantity" => {"$lt" => 60}}}
@@ -60,7 +59,6 @@ class StorageTest < Test::Unit::TestCase
       {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
       {"path_to"=>"/list/quantity", "obj"=>{"$lt"=>60}, "class"=>Hash, "selector"=>true}
     ]
-    
     assert_equal expected_paths, paths
 
     doc = {"_id" => 1, "year" => 1898, "list" => {"quantity" => {"$gt" => 10, "$lt" => 60}}}
@@ -70,9 +68,17 @@ class StorageTest < Test::Unit::TestCase
       {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
       {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
       {"path_to"=>"/list/quantity", "obj"=>{"$gt"=>10, "$lt"=>60}, "class"=>Hash, "selector"=>true}
-    ]
+    ]  
+    assert_equal expected_paths, paths
     
-    assert_equal expected_paths, paths      
+    
+    doc = {"_id" => {"$in" => [1, 2, 42]}}
+    paths = JOR::Doc.paths("",doc)
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>{"$in"=>[1, 2, 42]}, "class"=>Hash, "selector"=>true}
+    ]
+    assert_equal expected_paths, paths
+    
   end
 
 end

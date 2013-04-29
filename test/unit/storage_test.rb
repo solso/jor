@@ -30,65 +30,65 @@ class StorageTest < Test::Unit::TestCase
     assert_equal [], diff(doc3, @jor.find({"_id" => 3}).first)
   end
   
-  def WIP_test_search_by_string_field
+  def test_find_exact_string
     
-    docs = []
+    sample_docs = []
     10.times do |i|
-      docs << @jor.insert({"_id" => i, "name" => "foo_#{i}"})
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}"})
     end
 
     doc = @jor.find({"name" => "foo_5"}).first
-    assert_equal docs[5].to_json, doc.to_json
+    assert_equal sample_docs[5].to_json, doc.to_json
     
     doc = @jor.find({"name" => "foo_7"}).first
-    assert_equal docs[7].to_json, doc.to_json
+    assert_equal sample_docs[7].to_json, doc.to_json
     
   end
   
-  def test_search_by_numeric_field
+  def test_find_by_comparison_selector
     
-    docs = []
+    sample_docs = []
     ## years from 2000 to 2009
     10.times do |i|
-      docs << @jor.insert({"_id" => i, "name" => "foo_#{i}", "year" => 2000+i})
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}", "year" => 2000+i})
     end
     
     doc = @jor.find({"year" => 2005}).first
-    assert_equal docs[5].to_json, doc.to_json
+    assert_equal sample_docs[5].to_json, doc.to_json
     
     doc = @jor.find({"year" => { "$lt" => 2005 }})
     assert_equal 5, doc.size
-    assert_equal docs[0].to_json, doc.first.to_json
-    assert_equal docs[4].to_json, doc.last.to_json
+    assert_equal sample_docs[0].to_json, doc.first.to_json
+    assert_equal sample_docs[4].to_json, doc.last.to_json
     
     doc = @jor.find({"year" => { "$lte" => 2005 }})
     assert_equal 6, doc.size
-    assert_equal docs[0].to_json, doc.first.to_json
-    assert_equal docs[5].to_json, doc.last.to_json
+    assert_equal sample_docs[0].to_json, doc.first.to_json
+    assert_equal sample_docs[5].to_json, doc.last.to_json
     
     doc = @jor.find({"year" => { "$gt" => 2007 }})
     assert_equal 2, doc.size
-    assert_equal docs[8].to_json, doc.first.to_json
-    assert_equal docs[9].to_json, doc.last.to_json
+    assert_equal sample_docs[8].to_json, doc.first.to_json
+    assert_equal sample_docs[9].to_json, doc.last.to_json
     
     doc = @jor.find({"year" => { "$gte" => 2007 }})
     assert_equal 3, doc.size
-    assert_equal docs[7].to_json, doc.first.to_json
-    assert_equal docs[9].to_json, doc.last.to_json
+    assert_equal sample_docs[7].to_json, doc.first.to_json
+    assert_equal sample_docs[9].to_json, doc.last.to_json
     
     doc = @jor.find({"year" => { "$gte" => 2003, "$lt" => 2005 }})
     assert_equal 2, doc.size
-    assert_equal docs[3].to_json, doc.first.to_json
-    assert_equal docs[4].to_json, doc.last.to_json
+    assert_equal sample_docs[3].to_json, doc.first.to_json
+    assert_equal sample_docs[4].to_json, doc.last.to_json
 
     doc = @jor.find({"year" => { "$gt" => 2003, "$lt" => 9999 }})
     assert_equal 6, doc.size
-    assert_equal docs[4].to_json, doc.first.to_json
-    assert_equal docs[9].to_json, doc.last.to_json
+    assert_equal sample_docs[4].to_json, doc.first.to_json
+    assert_equal sample_docs[9].to_json, doc.last.to_json
      
   end
   
-  def test_search_by_string_and_numeric_field_multiple
+  def test_find_by_comparison_combined
     
     sample_docs = []
     ## years from 2000 to 2009
@@ -116,6 +116,38 @@ class StorageTest < Test::Unit::TestCase
     docs = @jor.find({"year" => { "$gt" => 2001, "$lt" => 2009 }, "desc" => "NOT_bar", "nested" => {"name" => "foo_#{4}", "quantity" => {"$lte" => 4.0}}})
     assert_equal 0, docs.size
         
+  end
+  
+  def test_find_by_set_selector
+    
+    sample_docs = []
+    ## years from 2000 to 2009
+    10.times do |i|
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}"})
+    end
+    
+    docs = @jor.find({"_id" => {"$in" => []}})
+    assert_equal 0, docs.size
+    
+    docs = @jor.find({"_id" => {"$in" => [42]}})
+    assert_equal 0, docs.size
+            
+    docs = @jor.find({"_id" => {"$in" => [1, 2, 3, 4, 42]}})
+    assert_equal 4, docs.size
+    assert_equal sample_docs[1].to_json, docs.first.to_json
+    assert_equal sample_docs[4].to_json, docs.last.to_json
+    
+    docs = @jor.find({"name" => {"$in" => ["foo_42"]}})
+    assert_equal 0, docs.size
+    
+    docs = @jor.find({"name" => {"$in" => []}})
+    assert_equal 0, docs.size
+
+    docs = @jor.find({"name" => {"$in" => ["foo_7", "foo_8", "foo_42"]}})
+    assert_equal 2, docs.size
+    assert_equal sample_docs[7].to_json, docs.first.to_json
+    assert_equal sample_docs[8].to_json, docs.last.to_json
+    
   end
   
 end

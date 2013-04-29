@@ -39,7 +39,7 @@ module JOR
       ids = []
       
       ## if doc contains _id it ignores the rest of the doc's fields
-      if !doc["_id"].nil?
+      if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
         ids << doc["_id"]
       else
         paths = Doc.paths("$",doc)
@@ -68,7 +68,7 @@ module JOR
       end
       
       return [] if results.nil? || results.size==0  
-      #raise NoResults.new(doc) if results.nil? || results.size==0 
+      #raise NoResults.new(doc) if results.nil? || results.size==0
       results.map! { |item| JSON::parse(item) }
       
       return results
@@ -113,6 +113,12 @@ module JOR
       raise IncompatibleSelectors.new(selectors)      
     end
 
+    def find_type(obj)
+      [String, Numeric, Time].each do |type|
+        return type if obj.kind_of? type
+      end
+      raise TypeNotSupported.new(obj.class)
+    end
 
     def fetch_ids_by_index(path)
       
@@ -122,7 +128,7 @@ module JOR
         type = check_selectors(path["obj"].keys)
         
         if type == :compare
-          key = idx_key(path["path_to"], Numeric)
+          key = idx_key(path["path_to"], find_type(path["obj"].values.first))
         
           rmin = "-inf"
           rmin = path["obj"]["$gte"] unless path["obj"]["$gte"].nil?
@@ -136,6 +142,13 @@ module JOR
           return redis.zrangebyscore(key,rmin,rmax)
           
         elsif type == :sets
+          
+          target = path["obj"]["$in"]
+          join_set = []
+          target.each do |item|
+            join_set = join_set  | redis.smembers(idx_key(path["path_to"], find_type(item), item))
+          end
+          return join_set
           
         else
             
