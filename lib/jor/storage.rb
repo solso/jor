@@ -2,23 +2,13 @@
 module JOR
   class Storage
   
+    SELECTORS = ["$gt","$gte","$lt","$gte","$in","$all"]
+  
     def initialize(redis = nil)
       redis = Redis.new() if redis.nil?
       @redis  = ::Redis::Namespace.new(:jor, :redis => redis)
       @redis
     end
-    
-    def insert2(doc)
-      doc["_id"] = next_id if doc["_id"].nil?
-      id = doc["_id"]
-      enc_doc = JSON::generate(doc)
-      
-      @redis.multi do
-        @redis.set("jor/docs/#{id}",enc_doc)
-        build_idx_doc("0/",id,doc)
-      end
-    end
-    
     
     def insert(doc)
       doc["_id"] = next_id if doc["_id"].nil?
@@ -92,9 +82,31 @@ module JOR
     
     def fetch_ids_by_index(path)
       
+      if path["selector"]==true
+        h = path["obj"]
+        
+        rmin = nil
+        rmax = nil
+        
+        rmax ||= "(#{h["$lt"]}"
+        rmax ||= "#{h["$lte"]}"
+        rmax ||= "inf"
+        rmin ||= "(#{h["$gt"]}"
+        rmin ||= "#{h["$gt"]}"
+        rmin ||= "-inf"
+        
+      end
+      
       if path["obj"].kind_of? String
         key = "jor/idx/#{path["path_to"]}/String/#{path["obj"]}"
         return @redis.smembers(key)
+      elsif path["obj"].kind_of? Numeric
+        key = "jor/idx/#{path["path_to"]}/Number"
+        return @redis.zrangebyscore(key,path["obj"],path["obj"])
+        ##ZRANGEBYSCORE zset (5 (10 : 5 < x < 10
+      elsif path["obj"].kind_of? Time
+        key = "jor/idx/#{path["path_to"]}/Time"
+        return []
       else
         raise TypeNotSupported.new(value.class)
       end

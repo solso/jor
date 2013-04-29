@@ -7,7 +7,13 @@ module JOR
       if h.class==Hash
         v = []
         h.each do |k,val|
-          v << paths("#{path}/#{k}",val)
+          if JOR::Storage::SELECTORS.member?(k)
+            puts "----->"
+            return [{"path_to" => path, "obj" => h, "class" => h.class, "selector" => true}]
+          else
+            raise InvalidFieldName.new(k) if (k!="_id") && (k[0]=="_" || k[0]=="$")
+            v << paths("#{path}/#{k}",val)
+          end
         end
         return v.flatten
       else

@@ -15,4 +15,10 @@ module JOR
     end
   end
   
+  class InvalidFieldName < Error
+    def initialize(field)
+      super %(Invalid character in field name "#{field}". Cannot start with '_' or '$'")
+    end
+  end  
+
 end

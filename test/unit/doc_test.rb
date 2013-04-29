@@ -40,5 +40,21 @@ class StorageTest < Test::Unit::TestCase
     assert_equal expected_paths, paths  
   end
   
+  def test_path_selectors
+    
+    doc = {"_id" => 1, "year" => 1898, "list" => {"quantity" => 15}}
+    paths = ::JOR::Doc.paths("",doc)
+    puts paths
+    
+    doc = {"_id" => 1, "year" => 1898, "list" => {"quantity" => {"$lt" => 60}}}
+    paths = ::JOR::Doc.paths("",doc)
+    puts paths
+
+    doc = {"_id" => 1, "year" => 1898, "list" => {"quantity" => {"$gt" => 10, "$lt" => 60}}}
+    paths = ::JOR::Doc.paths("",doc)
+    puts paths
+    
+  end
+  
   
 end
