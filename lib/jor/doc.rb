@@ -19,10 +19,10 @@ module JOR
           v = []
           if h.size>0
             h.each do |item|
-              v << paths("#{path}/[]",item)
+              v << paths("#{path}",item)
            end
           else
-            v << ["#{path}/[]"]
+            v << ["#{path}"]
           end
           return v.flatten
         else

@@ -123,7 +123,7 @@ class StorageTest < Test::Unit::TestCase
     sample_docs = []
     ## years from 2000 to 2009
     10.times do |i|
-      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}"})
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}", "nested" => { "year" => 2000+i, "pair" => ((i%2)==0 ? "even" : "odd")} })
     end
     
     docs = @jor.find({"_id" => {"$in" => []}})
@@ -131,23 +131,68 @@ class StorageTest < Test::Unit::TestCase
     
     docs = @jor.find({"_id" => {"$in" => [42]}})
     assert_equal 0, docs.size
-            
+    
+    docs = @jor.find({"_id" => {"$in" => [8]}})
+    assert_equal 1, docs.size
+    assert_equal sample_docs[8].to_json, docs.first.to_json
+    
+    docs = @jor.find({"_id" => {"$all" => [8]}})
+    assert_equal 1, docs.size
+    assert_equal sample_docs[8].to_json, docs.first.to_json
+                
     docs = @jor.find({"_id" => {"$in" => [1, 2, 3, 4, 42]}})
     assert_equal 4, docs.size
     assert_equal sample_docs[1].to_json, docs.first.to_json
     assert_equal sample_docs[4].to_json, docs.last.to_json
     
+    docs = @jor.find({"_id" => {"$all" => [1, 2, 3, 4, 42]}})
+    assert_equal 0, docs.size
+            
     docs = @jor.find({"name" => {"$in" => ["foo_42"]}})
     assert_equal 0, docs.size
-    
+
+    docs = @jor.find({"name" => {"$all" => ["foo_42"]}})
+    assert_equal 0, docs.size
+        
     docs = @jor.find({"name" => {"$in" => []}})
     assert_equal 0, docs.size
-
+    
+    docs = @jor.find({"name" => {"$all" => []}})
+    assert_equal 0, docs.size
+    
     docs = @jor.find({"name" => {"$in" => ["foo_7", "foo_8", "foo_42"]}})
     assert_equal 2, docs.size
     assert_equal sample_docs[7].to_json, docs.first.to_json
     assert_equal sample_docs[8].to_json, docs.last.to_json
     
+    docs = @jor.find({"nested" => {"pair" => { "$in" => ["even", "odd"]}}})
+    assert_equal 10, docs.size
+    assert_equal sample_docs[0].to_json, docs.first.to_json
+    assert_equal sample_docs[9].to_json, docs.last.to_json
+    
+    docs = @jor.find({"nested" => {"pair" => { "$all" => ["even", "odd"]}}})
+    assert_equal 0, docs.size
+        
+    docs = @jor.find({"nested" => {"pair" => { "$in" => ["even"]}}})
+    assert_equal 5, docs.size
+    assert_equal sample_docs[0].to_json, docs.first.to_json
+    assert_equal sample_docs[8].to_json, docs.last.to_json
+    
+    docs = @jor.find({"nested" => {"pair" => { "$all" => ["even"]}}})
+    assert_equal 5, docs.size
+    assert_equal sample_docs[0].to_json, docs.first.to_json
+    assert_equal sample_docs[8].to_json, docs.last.to_json
+    
+    docs = @jor.find({"nested" => {"pair" => { "$in" => ["even", "fake"]}}})
+    assert_equal 5, docs.size
+    assert_equal sample_docs[0].to_json, docs.first.to_json
+    assert_equal sample_docs[8].to_json, docs.last.to_json
+        
+    docs = @jor.find({"nested" => {"pair" => { "$all" => ["even", "fake"]}}})
+    assert_equal 0, docs.size
+    
   end
+  
+  
   
 end

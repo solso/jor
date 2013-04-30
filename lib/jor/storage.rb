@@ -4,7 +4,7 @@ module JOR
   
     SELECTORS = {
       :compare => ["$gt","$gte","$lt","$lte"],
-      :sets => ["$in"],
+      :sets => ["$in","$all"],
       :boolean => []
     }
     
@@ -143,12 +143,28 @@ module JOR
           
         elsif type == :sets
           
-          target = path["obj"]["$in"]
-          join_set = []
-          target.each do |item|
-            join_set = join_set  | redis.smembers(idx_key(path["path_to"], find_type(item), item))
-          end
-          return join_set
+          if path["obj"]["$in"]
+            target = path["obj"]["$in"]
+            join_set = []
+            target.each do |item|
+              join_set = join_set | redis.smembers(idx_key(path["path_to"], find_type(item), item))
+            end
+            return join_set
+          elsif path["obj"]["$all"]
+            join_set = []
+            target = path["obj"]["$all"]
+            target.each do |item|
+              if join_set.size==0
+                join_set = redis.smembers(idx_key(path["path_to"], find_type(item), item))
+              else
+                join_set = join_set & redis.smembers(idx_key(path["path_to"], find_type(item), item))
+              end
+              return [] if (join_set.nil? || join_set.size==0)
+            end
+            return join_set
+          else
+            ## should be an error
+          end  
           
         else
             
