@@ -17,21 +17,31 @@ module JOR
       @redis
     end
     
-    def insert(doc)
-      doc["_id"] = next_id if doc["_id"].nil?
-      id = doc["_id"]
-      enc_doc = JSON::generate(doc)
+    def insert(doc, options = {})
       
-      paths = Doc.paths("$",doc)
+      doc.is_a?(Array) ? docs = doc : docs = [doc]
+    
+      docs.each do |d|
+      
+        d["_id"] = next_id if d["_id"].nil?
+        id = d["_id"]
+        encd = JSON::generate(d)
+        paths = Doc.paths("$",d)
 
-      redis.multi do 
-        redis.set("jor/docs/#{id}",enc_doc)
-        paths.each do |path|
-         add_index(path,id) 
+        redis.multi do 
+          redis.set("jor/docs/#{id}",encd)
+          redis.sadd("jor/sdocs/",id)
+          paths.each do |path|
+            add_index(path,id) 
+          end
         end
       end
       
       doc
+    end
+    
+    def count
+      redis.scard("jor/sdocs/")
     end
     
     def find(doc, options = {:all => false})
@@ -41,6 +51,8 @@ module JOR
       ## if doc contains _id it ignores the rest of the doc's fields
       if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
         ids << doc["_id"]
+      elsif (doc == {})
+        ids = redis.smembers("jor/sdocs/")
       else
         paths = Doc.paths("$",doc)
    

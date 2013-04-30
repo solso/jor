@@ -14,7 +14,7 @@ class StorageTest < Test::Unit::TestCase
   end
   
   
-  def test_basic_save_and_find_path
+  def test_basic_insert_and_find_path
     doc1 = create_sample_doc_restaurant({"_id" => 1})
     @jor.insert(doc1)
     
@@ -24,10 +24,31 @@ class StorageTest < Test::Unit::TestCase
     doc3 = create_sample_doc_restaurant({"_id" => 3})
     @jor.insert(doc3)
     
+    assert_equal 3, @jor.count()
+    assert_equal 3, @jor.find({}).size
+    
     assert_equal doc1.to_json, @jor.find({"_id" => 1}).first.to_json
     ## use diff when the same order is not guaranted, safer
     assert_equal [], diff(doc2, @jor.find({"_id" => 2}).first)
     assert_equal [], diff(doc3, @jor.find({"_id" => 3}).first)
+  end
+  
+  def test_bulk_insert
+    
+    sample_docs = []
+    10.times do |i|
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}"})
+    end
+    
+    @jor.insert(sample_docs)
+    
+    assert_equal 10, @jor.count()
+    
+    docs = @jor.find({})
+    10.times do |i|
+      assert_equal sample_docs[i].to_json, docs[i].to_json
+    end
+    
   end
   
   def test_find_exact_string
