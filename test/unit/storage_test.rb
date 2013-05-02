@@ -50,6 +50,32 @@ class StorageTest < Test::Unit::TestCase
     
   end
   
+  def test_delete
+    ## MUST ALSO TEST THAT NO KEYS ARE LEFT HANGING 
+    sample_docs = []
+    10.times do |i|
+      sample_docs << @jor.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+    
+    @jor.insert(sample_docs)
+    assert_equal 10, @jor.count()
+    
+    assert_equal 0, @jor.delete({"_id" => 42})
+    assert_equal 10, @jor.count()
+    
+    assert_equal 0, @jor.delete({"foo" => "not_bar"})
+    assert_equal 10, @jor.count()
+        
+    assert_equal 1, @jor.delete({"_id" => 0})      
+    assert_equal 9, @jor.count()
+    
+    assert_equal 3, @jor.delete({"year" => { "$lt" => 2004 }})
+    assert_equal 6, @jor.count()
+    
+    assert_equal 6, @jor.delete({"foo" => "bar"})     
+    assert_equal 0, @jor.count()      
+  end
+  
   def test_find_exact_string
     
     sample_docs = []

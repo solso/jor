@@ -28,7 +28,7 @@ module JOR
 
         redis.multi do 
           redis.set("jor/docs/#{id}",encd)
-          redis.sadd("jor/sdocs/",id)
+          redis.sadd("jor/sdocs",id)
           paths.each do |path|
             add_index(path,id) 
           end
@@ -39,7 +39,7 @@ module JOR
     end
     
     def delete(doc, options ={})
-      ids = find(doc, {:id => true})
+      ids = find(doc, {:only_id => true})
       ids.each do |id|
         delete_by_id(id)
       end
@@ -47,7 +47,7 @@ module JOR
     end
         
     def count
-      redis.scard("jor/sdocs/")
+      redis.scard("jor/sdocs")
     end
     
     def find(doc, options = {:all => false})
@@ -57,8 +57,9 @@ module JOR
       ## if doc contains _id it ignores the rest of the doc's fields
       if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
         ids << doc["_id"]
+        return [] if options[:only_id]==true && redis.get("jor/docs/#{ids.first}").nil?
       elsif (doc == {})
-        ids = redis.smembers("jor/sdocs/")
+        ids = redis.smembers("jor/sdocs")
       else
         paths = Doc.paths("$",doc)
    
@@ -79,6 +80,8 @@ module JOR
       
       return [] if ids.nil? || ids.size==0
       
+      return ids if (options[:only_id]==true)
+        
       results = redis.pipelined do
         ids.each do |id|
           redis.get("jor/docs/#{id}")
@@ -205,21 +208,23 @@ module JOR
       
       indexes = redis.smembers(idx_set_key(id))
       
-      indexes.each do |index|
-        last = index.split("/").last
-        ##
-        PROBLEM, HOW TO REMOVE IF YOU DO NOT KNOW THE SCORE
-        if last=="String" || last=="Numeric" || last=="Time"
-          redis.(index,id)
-        else
-          redis.srem(index,id)
+      redis.pipelined do
+        indexes.each do |index|
+  
+          v = index.split("_")
+          key = v[0..v.size-2].join("_")
+          if v.last=="srem"
+            redis.srem(key, id)
+          elsif v.last=="zrem"
+            redis.zrem(key, id)
+          end
         end
-        redis.(index,)
-      end
       
-      redis.del(idx_set_key(id))
-      redis.srem("jor/sdocs",id)
-      redis.del("jor/docs/#{id}")
+        redis.del(idx_set_key(id))
+        redis.srem("jor/sdocs",id)
+        redis.del("jor/docs/#{id}")
+        
+      end
       
     end
     
@@ -227,15 +232,15 @@ module JOR
     def add_index(path, id)
       if path["obj"].kind_of?(String)
         key = idx_key(path["path_to"], String, path["obj"])
-        redis.sadd(key,id)
-        redis.sadd(idx_set_key(id), key)
+        redis.sadd(key, id)
+        redis.sadd(idx_set_key(id), "#{key}_srem")
       elsif path["obj"].kind_of?(Numeric)
         key = idx_key(path["path_to"], Numeric, path["obj"])
         redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), key)
+        redis.sadd(idx_set_key(id), "#{key}_zrem")
         key = idx_key(path["path_to"], Numeric)
-        redis.zadd(key,path["obj"], id)
-        redis.sadd(idx_set_key(id), key)
+        redis.zadd(key, path["obj"], id)
+        redis.sadd(idx_set_key(id), "#{key}_zrem")
       elsif path["obj"].kind_of?(Time)
         key = idx_key(path["path_to"], Time, path["obj"])
         redis.sadd(key, id)
