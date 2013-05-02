@@ -10,23 +10,21 @@ module JOR
     
     SELECTORS_ALL = SELECTORS.keys.inject([]) { |sel, element| sel | SELECTORS[element] } 
     
-    
     def initialize(redis = nil)
       redis = Redis.new() if redis.nil?
       @redis  = Redis::Namespace.new(:jor, :redis => redis)
       @redis
     end
     
-    def insert(doc, options = {})
+    def insert(docs, options = {})
       
-      doc.is_a?(Array) ? docs = doc : docs = [doc]
+      docs.is_a?(Array) ? docs_list = docs : docs_list = [docs]
     
-      docs.each do |d|
-      
-        d["_id"] = next_id if d["_id"].nil?
-        id = d["_id"]
-        encd = JSON::generate(d)
-        paths = Doc.paths("$",d)
+      docs_list.each do |doc|  
+        doc["_id"] = next_id if doc["_id"].nil?
+        id = doc["_id"]
+        encd = JSON::generate(doc)
+        paths = Doc.paths("$",doc)
 
         redis.multi do 
           redis.set("jor/docs/#{id}",encd)
@@ -37,9 +35,17 @@ module JOR
         end
       end
       
-      doc
+      docs
     end
     
+    def delete(doc, options ={})
+      ids = find(doc, {:id => true})
+      ids.each do |id|
+        delete_by_id(id)
+      end
+      ids.size
+    end
+        
     def count
       redis.scard("jor/sdocs/")
     end
@@ -194,6 +200,29 @@ module JOR
       end
         
     end
+    
+    def delete_by_id(id)
+      
+      indexes = redis.smembers(idx_set_key(id))
+      
+      indexes.each do |index|
+        last = index.split("/").last
+        ##
+        PROBLEM, HOW TO REMOVE IF YOU DO NOT KNOW THE SCORE
+        if last=="String" || last=="Numeric" || last=="Time"
+          redis.(index,id)
+        else
+          redis.srem(index,id)
+        end
+        redis.(index,)
+      end
+      
+      redis.del(idx_set_key(id))
+      redis.srem("jor/sdocs",id)
+      redis.del("jor/docs/#{id}")
+      
+    end
+    
     
     def add_index(path, id)
       if path["obj"].kind_of?(String)

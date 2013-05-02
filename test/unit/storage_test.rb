@@ -13,7 +13,6 @@ class StorageTest < Test::Unit::TestCase
     @jor.redis.flushdb()
   end
   
-  
   def test_basic_insert_and_find_path
     doc1 = create_sample_doc_restaurant({"_id" => 1})
     @jor.insert(doc1)
