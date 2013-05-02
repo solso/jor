@@ -77,6 +77,13 @@ class StorageTest < Test::Unit::TestCase
       {"path_to"=>"/_id", "obj"=>{"$in"=>[1, 2, 42]}, "class"=>Hash, "selector"=>true}
     ]
     assert_equal expected_paths, paths
+
+    doc = {"_id" => {"$all" => [1, 2, 42]}}
+    paths = JOR::Doc.paths("",doc)
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>{"$all"=>[1, 2, 42]}, "class"=>Hash, "selector"=>true}
+    ]
+    assert_equal expected_paths, paths
     
    
     
