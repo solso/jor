@@ -26,5 +26,31 @@ module JOR
       super %(Incompatible selectors in "#{str}". They must be grouped like this #{Storage::SELECTORS})
     end
   end
+  
+  class NotInCollection < Error
+    def initialize
+      super %(The current collection is undefined)
+    end
+  end
+  
+  class CollectionDoesNotExist < Error
+    def initialize(str)
+      super %(Collection "#{str}" does not exist)
+    end
+  end
+
+  class CollectionAlreadyExists < Error
+    def initialize(str)
+      super %(Collection "#{str}" already exists)
+    end
+  end
+
+  class CollectionNotValid < Error
+    def initialize(str)
+      super %(Collection "#{str}" is not a valid name, might be reserver)
+    end
+  end
+  
+  
 
 end

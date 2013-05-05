@@ -4,7 +4,7 @@ class StorageTest < Test::Unit::TestCase
 
   def setup 
     redis = Redis.new(:db => 9)
-    @jor = ::JOR::Storage.new(redis)
+    @jor = JOR::Storage.new(redis)
     list = @jor.redis.keys("*")
     raise "Cannot run the tests safely!! The test DB (:db => 9) is not empty, and the test might flush the data. Stopping." if list.size>0
   end
@@ -83,10 +83,7 @@ class StorageTest < Test::Unit::TestCase
     expected_paths = [
       {"path_to"=>"/_id", "obj"=>{"$all"=>[1, 2, 42]}, "class"=>Hash, "selector"=>true}
     ]
-    assert_equal expected_paths, paths
-    
-   
-    
+    assert_equal expected_paths, paths 
   end
 
 end
