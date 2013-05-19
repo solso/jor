@@ -1,6 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 
-class CollectionsTest < Test::Unit::TestCase
+class StorageTest < Test::Unit::TestCase
 
   def setup 
     redis = Redis.new(:db => 9)
@@ -14,41 +14,41 @@ class CollectionsTest < Test::Unit::TestCase
   end
   
   def test_create_collection
-    @jor.collections.create("coll_foo")
-    @jor.collections.create("coll_bar")
-    assert_equal ["coll_foo", "coll_bar"].sort, @jor.collections.list.sort
+    @jor.create_collection("coll_foo")
+    @jor.create_collection("coll_bar")
+    assert_equal ["coll_foo", "coll_bar"].sort, @jor.list_collections.sort
     
-    @jor.collections.create("coll_zoe")
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.list.sort
+    @jor.create_collection("coll_zoe")
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
     
     assert_raise JOR::CollectionAlreadyExists do
-      @jor.collections.create("coll_zoe")
+      @jor.create_collection("coll_zoe")
     end
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.list.sort
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
     
     assert_raise JOR::CollectionNotValid do
-      @jor.collections.create("collections")
+      @jor.create_collection("collections")
     end
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.list.sort
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
     
   end
   
   def test_destroy_collection
-    @jor.collections.create("coll_1")
-    @jor.collections.create("coll_2")
-    @jor.collections.create("coll_3")
-    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.collections.list.sort
+    @jor.create_collection("coll_1")
+    @jor.create_collection("coll_2")
+    @jor.create_collection("coll_3")
+    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.list_collections.sort
     
     assert_raise JOR::CollectionDoesNotExist do
-      @jor.collections.destroy("foo")
+      @jor.destroy_collection("foo")
     end
-    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.collections.list.sort
+    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.list_collections.sort
     
-    @jor.collections.destroy("coll_1")
-    assert_equal ["coll_2", "coll_3"].sort, @jor.collections.list.sort
+    @jor.destroy_collection("coll_1")
+    assert_equal ["coll_2", "coll_3"].sort, @jor.list_collections.sort
 
-    @jor.collections.destroy_all()
-    assert_equal [].sort, @jor.collections.list.sort  
+    @jor.destroy_all()
+    assert_equal [].sort, @jor.list_collections.sort  
   end
   
   def test_collection_has_not_been_created_or_removed
@@ -57,13 +57,13 @@ class CollectionsTest < Test::Unit::TestCase
       @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => 1}))
     end
     
-    @jor.collections.create("restaurant")
+    @jor.create_collection("restaurant")
     @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => 1}))
     @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => 2}))
     @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => 3}))
     assert_equal 3, @jor.restaurant.count()
     
-    @jor.collections.destroy("restaurant")
+    @jor.destroy_collection("restaurant")
     
     assert_raise JOR::CollectionDoesNotExist do
       @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => 1}))
@@ -73,8 +73,8 @@ class CollectionsTest < Test::Unit::TestCase
   
   def test_switching_between_collections
     
-    @jor.collections.create("restaurant")
-    @jor.collections.create("cs")
+    @jor.create_collection("restaurant")
+    @jor.create_collection("cs")
     
     10.times do |i|
       @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => i})) 
@@ -89,7 +89,7 @@ class CollectionsTest < Test::Unit::TestCase
     assert_equal 10, @jor.restaurant.count()
     assert_equal 100, @jor.cs.count()
     
-    @jor.collections.destroy("restaurant")
+    @jor.destroy_collection("restaurant")
     assert_raise JOR::CollectionDoesNotExist do
       @jor.restaurant.count()
     end

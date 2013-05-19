@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 lib = File.expand_path('../lib/', __FILE__)
 $:.unshift lib unless $:.include?(lib)
+
 require 'jor/version'
 
 Gem::Specification.new do |gem|
@@ -18,7 +19,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = JOR::VERSION
 
-  gem.add_dependency 'redis-namespace',           '1.2.1'
   gem.add_dependency 'hiredis',                   '0.4.5'
   gem.add_dependency 'redis',                     '3.0.3'
 end

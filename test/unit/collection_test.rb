@@ -7,7 +7,7 @@ class CollectionTest < Test::Unit::TestCase
     @jor = JOR::Storage.new(redis)
     list = @jor.redis.keys("*")
     raise "Cannot run the tests safely!! The test DB (:db => 9) is not empty, and the test might flush the data. Stopping." if list.size>0
-    @jor.collections.create("test")
+    @jor.create_collection("test")
   end
   
   def teardown
@@ -239,7 +239,4 @@ class CollectionTest < Test::Unit::TestCase
     assert_equal 0, docs.size
     
   end
-  
-  
-  
 end

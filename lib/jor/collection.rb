@@ -30,8 +30,8 @@ module JOR
         paths = Doc.paths("$",doc)
 
         redis.multi do 
-          redis.set("#{Storage::NAMESPACE}/#{name}/docs/#{id}",encd)
-          redis.sadd("#{Storage::NAMESPACE}/#{name}/sdocs",id)
+          redis.set(doc_key(id),encd)
+          redis.sadd(doc_set_key(),id)
           paths.each do |path|
             add_index(path,id) 
           end
@@ -52,7 +52,7 @@ module JOR
         
     def count
       raise NotInCollection.new unless name
-      redis.scard("#{Storage::NAMESPACE}/#{name}/sdocs")
+      redis.scard(doc_set_key())
     end
     
     def find(doc, options = {:all => false})
@@ -63,9 +63,9 @@ module JOR
       ## if doc contains _id it ignores the rest of the doc's fields
       if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
         ids << doc["_id"]
-        return [] if options[:only_id]==true && redis.get("#{Storage::NAMESPACE}/#{name}/docs/#{ids.first}").nil?
+        return [] if options[:only_id]==true && redis.get(doc_key(ids.first)).nil?
       elsif (doc == {})
-        ids = redis.smembers("#{Storage::NAMESPACE}/#{name}/sdocs")
+        ids = redis.smembers(doc_set_key())
       else
         paths = Doc.paths("$",doc)
    
@@ -90,12 +90,11 @@ module JOR
         
       results = redis.pipelined do
         ids.each do |id|
-          redis.get("#{Storage::NAMESPACE}/#{name}/docs/#{id}")
+          redis.get(doc_key(id))
         end
       end
       
       return [] if results.nil? || results.size==0  
-      #raise NoResults.new(doc) if results.nil? || results.size==0
       results.map! { |item| JSON::parse(item) }
       
       return results
@@ -186,12 +185,7 @@ module JOR
               return [] if (join_set.nil? || join_set.size==0)
             end
             return join_set
-          else
-            ## should be an error
-          end  
-          
-        else
-            
+          end
         end   
       end
       
@@ -208,7 +202,6 @@ module JOR
     end
     
     def delete_by_id(id)
-      
       indexes = redis.smembers(idx_set_key(id))
       
       redis.pipelined do
@@ -224,11 +217,9 @@ module JOR
         end
       
         redis.del(idx_set_key(id))
-        redis.srem("#{Storage::NAMESPACE}/#{name}/sdocs",id)
-        redis.del("#{Storage::NAMESPACE}/#{name}/docs/#{id}")
-        
+        redis.srem(doc_set_key(),id)
+        redis.del(doc_key(id))
       end
-      
     end
     
     
@@ -265,6 +256,15 @@ module JOR
     def idx_set_key(id)
       "#{Storage::NAMESPACE}/#{name}/sidx/#{id}"
     end
+    
+    def doc_key(id) 
+      "#{Storage::NAMESPACE}/#{name}/docs/#{id}"
+    end
+    
+    def doc_set_key()
+      "#{Storage::NAMESPACE}/#{name}/sdocs"
+    end
+    
     
     
   end
