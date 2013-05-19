@@ -8,8 +8,8 @@ module TestHelpers
                    "first" => "John",
                    "last" => "Backus"
                  },
-        "birth" => Time.mktime("1924","12","03","05","00","00"),
-        "death" => Time.mktime("2007","03","17","04","00","00"),
+        "birth" => Time.mktime("1924","12","03","05","00","00").to_i,
+        "death" => Time.mktime("2007","03","17","04","00","00").to_i,
         "contribs" => [ "Fortran", "ALGOL", "Backus-Naur Form", "FP" ],
         "awards" => [
                     {

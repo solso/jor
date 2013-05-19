@@ -1,5 +1,12 @@
 module JOR    
   class Collection 
+    
+    DEFAULT_OPTIONS = {
+      :max_documents => 1000,
+      :raw => false,
+      :only_ids => false,
+      :reversed => false
+    }
       
     def initialize(storage, name)
       @storage = storage
@@ -20,7 +27,7 @@ module JOR
               
     def insert(docs, options = {})
       raise NotInCollection.new unless name
-      
+            
       docs.is_a?(Array) ? docs_list = docs : docs_list = [docs]
     
       docs_list.each do |doc|  
@@ -31,7 +38,7 @@ module JOR
 
         redis.multi do 
           redis.set(doc_key(id),encd)
-          redis.sadd(doc_set_key(),id)
+          redis.zadd(doc_sset_key(),id,id)
           paths.each do |path|
             add_index(path,id) 
           end
@@ -43,7 +50,7 @@ module JOR
     
     def delete(doc, options ={})
       raise NotInCollection.new unless name
-      ids = find(doc, {:only_id => true})
+      ids = find(doc, {:only_ids => true, :max_documents => -1})
       ids.each do |id|
         delete_by_id(id)
       end
@@ -52,23 +59,36 @@ module JOR
         
     def count
       raise NotInCollection.new unless name
-      redis.scard(doc_set_key())
+      redis.zcard(doc_sset_key())
     end
     
-    def find(doc, options = {:all => false})
+    def find(doc, options = {})
       raise NotInCollection.new unless name
       # list of ids of the documents      
       ids = []
       
+      opt = DEFAULT_OPTIONS.merge(options)
+      
+      if opt[:max_documents] >= 0
+        num_docs = opt[:max_documents]-1
+      else
+        num_docs = -1
+      end
+         
       ## if doc contains _id it ignores the rest of the doc's fields
       if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
         ids << doc["_id"]
-        return [] if options[:only_id]==true && redis.get(doc_key(ids.first)).nil?
+        return [] if opt[:only_ids]==true && redis.get(doc_key(ids.first)).nil?
       elsif (doc == {})
-        ids = redis.smembers(doc_set_key())
+        if (opt[:reversed]==true)
+          ids = redis.zrevrange(doc_sset_key(),0,num_docs)
+        else
+          ids = redis.zrange(doc_sset_key(),0,num_docs)
+        end
+        ids.map!(&:to_i)
+        ##ids = redis.smembers(doc_sset_key())
       else
         paths = Doc.paths("$",doc)
-   
         ## for now, consider all logical and
         paths.each_with_index do |path, i|
           tmp_res = fetch_ids_by_index(path)
@@ -78,15 +98,22 @@ module JOR
             ids = ids & tmp_res
           end
         end
+        
+        ids.map!(&:to_i)
+        ids.reverse! if opt[:reversed]
       end
-         
-      ## we have now the list of id's the match the criteria, we can
-      ## fetch the docs by id now. Pagination (cursor) should go here.
-      ## also, consider returning the list of id's as options
-      
+             
       return [] if ids.nil? || ids.size==0
       
-      return ids if (options[:only_id]==true)
+      ## return only up to max_documents, if max_documents is negative
+      ## return them all (they have already been reversed) 
+      if opt[:max_documents] >= 0 && opt[:max_documents] < ids.size
+        ids = ids[0..opt[:max_documents]-1]
+      end
+      
+      ## return only the ids, it saves fetching the JSON string from 
+      ## redis and decoding it
+      return ids if (opt[:only_ids]==true)
         
       results = redis.pipelined do
         ids.each do |id|
@@ -94,9 +121,11 @@ module JOR
         end
       end
       
-      return [] if results.nil? || results.size==0  
-      results.map! { |item| JSON::parse(item) }
+      ## return the results JSON encoded (raw), many times you do not need the
+      ## object but only the JSON string
+      return results if (opt[:raw]==true)
       
+      results.map! { |item| JSON::parse(item) }
       return results
     end
     
@@ -172,7 +201,7 @@ module JOR
             target.each do |item|
               join_set = join_set | redis.smembers(idx_key(path["path_to"], find_type(item), item))
             end
-            return join_set
+            return join_set.sort
           elsif path["obj"]["$all"]
             join_set = []
             target = path["obj"]["$all"]
@@ -184,17 +213,15 @@ module JOR
               end
               return [] if (join_set.nil? || join_set.size==0)
             end
-            return join_set
+            return join_set.sort
           end
         end   
       end
       
       if path["obj"].kind_of? String
-        return redis.smembers(idx_key(path["path_to"], String, path["obj"]))
+        return redis.smembers(idx_key(path["path_to"], String, path["obj"])).sort
       elsif path["obj"].kind_of? Numeric
-        return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"]))
-      elsif path["obj"].kind_of? Time
-        return []
+        return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"])).sort
       else
         raise TypeNotSupported.new(value.class)
       end
@@ -217,12 +244,11 @@ module JOR
         end
       
         redis.del(idx_set_key(id))
-        redis.srem(doc_set_key(),id)
+        redis.zrem(doc_sset_key(),id)
         redis.del(doc_key(id))
       end
     end
-    
-    
+        
     def add_index(path, id)
       if path["obj"].kind_of?(String)
         key = idx_key(path["path_to"], String, path["obj"])
@@ -235,15 +261,8 @@ module JOR
         key = idx_key(path["path_to"], Numeric)
         redis.zadd(key, path["obj"], id)
         redis.sadd(idx_set_key(id), "#{key}_zrem")
-      elsif path["obj"].kind_of?(Time)
-        key = idx_key(path["path_to"], Time, path["obj"])
-        redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), key)
-        key = idx_key(path["path_to"], Time)
-        redis.zadd(key,path["obj"], id)
-        redis.sadd(idx_set_key(id), key)
       else
-        raise TypeNotSupported.new(value.class)
+        raise TypeNotSupported.new(path["obj"].class)
       end
     end
     
@@ -261,11 +280,9 @@ module JOR
       "#{Storage::NAMESPACE}/#{name}/docs/#{id}"
     end
     
-    def doc_set_key()
-      "#{Storage::NAMESPACE}/#{name}/sdocs"
+    def doc_sset_key()
+      "#{Storage::NAMESPACE}/#{name}/ssdocs"
     end
-    
-    
     
   end
 end

@@ -28,9 +28,8 @@ class CollectionTest < Test::Unit::TestCase
     assert_equal 3, @jor.test.find({}).size
     
     assert_equal doc1.to_json, @jor.test.find({"_id" => 1}).first.to_json
-    ## use diff when the same order is not guaranted, safer
-    assert_equal [], diff(doc2, @jor.test.find({"_id" => 2}).first)
-    assert_equal [], diff(doc3, @jor.test.find({"_id" => 3}).first)
+    assert_equal doc2.to_json, @jor.test.find({"_id" => 2}).first.to_json
+    assert_equal doc3.to_json, @jor.test.find({"_id" => 3}).first.to_json
   end
   
   def test_bulk_insert
@@ -239,4 +238,65 @@ class CollectionTest < Test::Unit::TestCase
     assert_equal 0, docs.size
     
   end
+  
+  def test_playing_with_find_options
+    
+    n = (JOR::Collection::DEFAULT_OPTIONS[:max_documents]+100)
+    
+    n.times do |i|
+      doc = create_sample_doc_restaurant({"_id" => i})
+      @jor.test.insert(doc)
+    end
+    
+    ## testing max_documents
+    
+    docs = @jor.test.find({})
+        
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents], docs.size
+    assert_equal 0, docs.first["_id"]
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents]-1, docs.last["_id"]
+    
+    docs = @jor.test.find({},{:max_documents => 20})
+    assert_equal 20, docs.size    
+        
+    docs = @jor.test.find({},{:max_documents => -1})
+    assert_equal n, docs.size
+    assert_equal 0, docs.first["_id"]
+    assert_equal n-1, docs.last["_id"]
+
+    ## testing only_ids
+    
+    docs = @jor.test.find({},{:only_ids => true, :max_documents => -1})
+    assert_equal n, docs.size
+    assert_equal 0, docs.first
+    assert_equal n-1, docs.last
+    
+    docs = @jor.test.find({},{:only_ids => true})
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents], docs.size
+    assert_equal 0, docs.first
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents]-1, docs.last
+    
+    ## testing reversed
+    
+    docs = @jor.test.find({},{:only_ids => true, :max_documents => -1, :reversed => true})
+    assert_equal n, docs.size
+    assert_equal n-1, docs.first
+    assert_equal 0, docs.last
+
+    docs = @jor.test.find({},{:only_ids => true, :reversed => true})
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents], docs.size
+    assert_equal n-1, docs.first
+    assert_equal n-JOR::Collection::DEFAULT_OPTIONS[:max_documents], docs.last
+    
+    ## encoded false
+    
+    docs = @jor.test.find({},{:raw => true, :reversed => true})
+    assert_equal JOR::Collection::DEFAULT_OPTIONS[:max_documents], docs.size
+    assert_equal String, docs.first.class
+    assert_equal String, docs.last.class
+    assert_equal n-1, JSON::parse(docs.first)["_id"]
+    assert_equal n-JOR::Collection::DEFAULT_OPTIONS[:max_documents], JSON::parse(docs.last)["_id"]
+    
+  end
+  
 end
