@@ -47,7 +47,7 @@ module JOR
 
   class CollectionNotValid < Error
     def initialize(str)
-      super %(Collection "#{str}" is not a valid name, might be reserver)
+      super %(Collection "#{str}" is not a valid name, might be reserved)
     end
   end
   
