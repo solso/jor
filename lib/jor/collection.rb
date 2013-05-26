@@ -28,6 +28,7 @@ module JOR
               
     def insert(docs, options = {})
       raise NotInCollection.new unless name
+      opt = merge_and_symbolize_options(options)
             
       docs.is_a?(Array) ? docs_list = docs : docs_list = [docs]
     
@@ -37,8 +38,8 @@ module JOR
         encd = JSON::generate(doc)
         paths = Doc.paths("!",doc)
       
-        if !options[:excluded_fields_to_index].nil? && options[:excluded_fields_to_index].size>0
-          excluded_paths = Doc.paths("!",options[:excluded_fields_to_index])
+        if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
+          excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])
           paths = Doc.difference(paths, excluded_paths)
         end
       
@@ -54,7 +55,7 @@ module JOR
       docs
     end
     
-    def delete(doc, options ={})
+    def delete(doc)
       raise NotInCollection.new unless name
       ids = find(doc, {:only_ids => true, :max_documents => -1})
       ids.each do |id|
@@ -72,8 +73,7 @@ module JOR
       raise NotInCollection.new unless name
       # list of ids of the documents      
       ids = []
-      
-      opt = DEFAULT_OPTIONS.merge(options)
+      opt =  merge_and_symbolize_options(options)
       
       if opt[:max_documents] >= 0
         num_docs = opt[:max_documents]-1
@@ -135,9 +135,16 @@ module JOR
       return results
     end
     
+    def last_id
+      redis.get("#{Storage::NAMESPACE}/#{name}/next_id") || 1
+    end
     
     protected
     
+    def merge_and_symbolize_options(options = {})
+      DEFAULT_OPTIONS.merge(options.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo})
+    end
+        
     def next_id
       redis.incrby("#{Storage::NAMESPACE}/#{name}/next_id",1)
     end

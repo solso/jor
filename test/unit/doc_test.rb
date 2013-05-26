@@ -3,7 +3,7 @@ require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 class StorageTest < Test::Unit::TestCase
 
   def setup 
-    redis = Redis.new(:db => 9)
+    redis = Redis.new(:db => 9, :driver => :hiredis)
     @jor = JOR::Storage.new(redis)
     list = @jor.redis.keys("*")
     raise "Cannot run the tests safely!! The test DB (:db => 9) is not empty, and the test might flush the data. Stopping." if list.size>0

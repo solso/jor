@@ -3,7 +3,7 @@ require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 class CollectionTest < Test::Unit::TestCase
 
   def setup 
-    redis = Redis.new(:db => 9)
+    redis = Redis.new(:db => 9, :driver => :hiredis)
     @jor = JOR::Storage.new(redis)
     list = @jor.redis.keys("*")
     raise "Cannot run the tests safely!! The test DB (:db => 9) is not empty, and the test might flush the data. Stopping." if list.size>0
@@ -15,6 +15,7 @@ class CollectionTest < Test::Unit::TestCase
   end
   
   def test_basic_insert_and_find_path
+    
     doc1 = create_sample_doc_restaurant({"_id" => 1})
     @jor.test.insert(doc1)
     

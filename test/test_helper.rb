@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'rack/test'
 require 'json'
 require 'hiredis'
 require 'redis'
