@@ -299,4 +299,30 @@ class CollectionTest < Test::Unit::TestCase
     
   end
   
+  def test_exclude_indexes
+    
+    assert_raise JOR::FieldIdCannotBeExcludedFromIndex do
+      @jor.test.insert(create_sample_doc_restaurant({"_id" => 1}), 
+        {:excluded_fields_to_index => {"_id" => true}})
+    end
+    
+    @jor.test.insert(create_sample_doc_restaurant({"_id" => 1}), 
+      {:excluded_fields_to_index => {"description" => true}})
+ 
+    @jor.test.insert(create_sample_doc_restaurant({"_id" => 42}), 
+      {:excluded_fields_to_index => {}})
+
+    res = @jor.test.find({},{:reversed => true})
+    assert_equal 2, res.size
+    assert_equal "very long description that we might not want to index", res.first["description"]
+    assert_equal 42, res.first["_id"]
+    assert_equal "very long description that we might not want to index", res.last["description"]
+    assert_equal 1, res.last["_id"]
+    
+    res = @jor.test.find({"description" => "very long description that we might not want to index"}, :reversed => true)
+    assert_equal 1, res.size
+    assert_equal 42, res.first["_id"]
+    
+  end
+  
 end

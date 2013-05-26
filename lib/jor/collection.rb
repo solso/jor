@@ -5,7 +5,8 @@ module JOR
       :max_documents => 1000,
       :raw => false,
       :only_ids => false,
-      :reversed => false
+      :reversed => false,
+      :excluded_fields_to_index => {}
     }
       
     def initialize(storage, name)
@@ -34,8 +35,13 @@ module JOR
         doc["_id"] = next_id if doc["_id"].nil?
         id = doc["_id"]
         encd = JSON::generate(doc)
-        paths = Doc.paths("$",doc)
-
+        paths = Doc.paths("!",doc)
+      
+        if !options[:excluded_fields_to_index].nil? && options[:excluded_fields_to_index].size>0
+          excluded_paths = Doc.paths("!",options[:excluded_fields_to_index])
+          paths = Doc.difference(paths, excluded_paths)
+        end
+      
         redis.multi do 
           redis.set(doc_key(id),encd)
           redis.zadd(doc_sset_key(),id,id)
@@ -88,7 +94,7 @@ module JOR
         ids.map!(&:to_i)
         ##ids = redis.smembers(doc_sset_key())
       else
-        paths = Doc.paths("$",doc)
+        paths = Doc.paths("!",doc)
         ## for now, consider all logical and
         paths.each_with_index do |path, i|
           tmp_res = fetch_ids_by_index(path)
@@ -140,7 +146,7 @@ module JOR
       return [doc["_id"]] if !doc["_id"].nil?
     
       ids = []
-      paths = Doc.paths("$",doc)
+      paths = Doc.paths("!",doc)
       
       ## for now, consider all logical and
       paths.each_with_index do |path, i|

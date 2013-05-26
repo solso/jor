@@ -85,5 +85,61 @@ class StorageTest < Test::Unit::TestCase
     ]
     assert_equal expected_paths, paths 
   end
+  
+  def test_difference
+    
+    doc = {"_id" => 1, "year" => 1898, 
+            "list" => {"quantity" => 15, "extra" => "long description that you want to skip"}}
+    paths = JOR::Doc.paths("",doc)
+    
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
+      {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
+      {"path_to"=>"/list/quantity", "obj"=>15, "class"=>Fixnum},
+      {"path_to"=>"/list/extra", "obj"=>"long description that you want to skip", "class"=>String}
+    ] 
+    assert_equal expected_paths, paths
+    
+    paths_to_exclude = JOR::Doc.paths("",{"_id" => 1})
+    
+    assert_raise JOR::FieldIdCannotBeExcludedFromIndex do
+      JOR::Doc.difference(paths,paths_to_exclude)
+    end
+    
+    paths_to_exclude = JOR::Doc.paths("",{"list" => {"extra" => ""}})
+    
+    expected_paths = [
+      {"path_to"=>"/list/extra", "obj"=>"", "class"=>String}
+    ] 
+    assert_equal expected_paths, paths_to_exclude
+    
+    diff_paths = JOR::Doc.difference(paths, paths_to_exclude)
+    
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
+      {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
+      {"path_to"=>"/list/quantity", "obj"=>15, "class"=>Fixnum}
+    ]
+    assert_equal expected_paths, diff_paths
+    
+    paths_to_exclude = JOR::Doc.paths("",{"list" => true})
+    diff_paths = JOR::Doc.difference(paths, paths_to_exclude)
+      
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
+      {"path_to"=>"/year", "obj"=>1898, "class"=>Fixnum},
+    ] 
+    assert_equal expected_paths, diff_paths
+    
 
+    paths_to_exclude = JOR::Doc.paths("",{"list" => {"extra" => true}, "year" => true})
+    diff_paths = JOR::Doc.difference(paths, paths_to_exclude)
+    
+    expected_paths = [
+      {"path_to"=>"/_id", "obj"=>1, "class"=>Fixnum},
+      {"path_to"=>"/list/quantity", "obj"=>15, "class"=>Fixnum}
+    ] 
+    assert_equal expected_paths, diff_paths
+    
+  end
 end

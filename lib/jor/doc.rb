@@ -30,6 +30,26 @@ module JOR
         end
       end
     end
+    
+    def self.difference(set, set_to_substract)
+      return set if set_to_substract.nil? || set_to_substract.size==0
+      
+      to_exclude = []
+      set_to_substract.each do |item|
+        raise FieldIdCannotBeExcludedFromIndex.new unless item["path_to"].match(/\/_id/)==nil
+        to_exclude << Regexp.new("^#{item["path_to"]}")
+      end
+      
+      res = []
+      set.each do |item|
+        not_found = true
+        to_exclude.each do |re|
+          not_found = not_found && re.match(item["path_to"])==nil
+        end
+        res << item if not_found
+      end  
+      return res
+    end
 
   end
 end

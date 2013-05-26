@@ -51,6 +51,9 @@ module JOR
     end
   end
   
-  
-
+  class FieldIdCannotBeExcludedFromIndex < Error
+    def initialize
+      super %(Field _id cannot be excluded from the index)
+    end
+  end
 end
