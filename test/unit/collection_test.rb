@@ -78,7 +78,6 @@ class CollectionTest < Test::Unit::TestCase
   end
   
   def test_find_exact_string
-    
     sample_docs = []
     10.times do |i|
       sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}"})
@@ -89,7 +88,12 @@ class CollectionTest < Test::Unit::TestCase
     
     doc = @jor.test.find({"name" => "foo_7"}).first
     assert_equal sample_docs[7].to_json, doc.to_json
-    
+  end
+  
+  def test_find_empty
+    assert_equal [], @jor.test.find({})
+    assert_equal [], @jor.test.find({"year" => 200})
+    assert_equal [], @jor.test.find({"_id" => 200})
   end
   
   def test_find_by_comparison_selector

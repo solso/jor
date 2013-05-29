@@ -24,6 +24,6 @@ Gem::Specification.new do |gem|
   gem.add_dependency 'rake'
   gem.add_dependency 'rack',		'1.5.2'	
   gem.add_dependency 'rack-test'
-  gem.add_dependency 'mongrel'
+  gem.add_dependency 'thin'
 end
 

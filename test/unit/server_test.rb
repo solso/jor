@@ -27,11 +27,11 @@ class ServerTest < Test::Unit::TestCase
     
     get '/test.last_id'
     assert_equal 200, last_response.status
-    assert_equal 1, JSON::parse(last_response.body)["value"]
+    assert_equal 0, JSON::parse(last_response.body)["value"]
     
     post '/test.last_id'
     assert_equal 200, last_response.status
-    assert_equal 1, JSON::parse(last_response.body)["value"]
+    assert_equal 0, JSON::parse(last_response.body)["value"]
     
     doc1 = create_sample_doc_restaurant({"_id" => 1})
 
@@ -67,7 +67,8 @@ class ServerTest < Test::Unit::TestCase
       assert_equal 4-i, results[i]["_id"]
     end
     
-    post '/test.find', "args[]=#{{}.to_json}&args[]=#{{"reversed" => true}.to_json}"
+    ##post '/test.find', "args[]=#{{}.to_json}&args[]=#{{"reversed" => true}.to_json}"
+    post '/test.find', [{},{"reversed" => true}].to_json
     assert_equal 200, last_response.status
     results = JSON::parse(last_response.body)
     assert_equal 4, results.size

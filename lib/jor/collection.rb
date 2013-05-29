@@ -127,6 +127,9 @@ module JOR
         end
       end
       
+      ## remove nils
+      results.delete_if {|i| i == nil}
+      
       ## return the results JSON encoded (raw), many times you do not need the
       ## object but only the JSON string
       return results if (opt[:raw]==true)
@@ -136,7 +139,7 @@ module JOR
     end
     
     def last_id
-      redis.get("#{Storage::NAMESPACE}/#{name}/next_id") || 1
+      redis.get("#{Storage::NAMESPACE}/#{name}/next_id") || 0
     end
     
     protected

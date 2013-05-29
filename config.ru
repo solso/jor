@@ -1,7 +1,2 @@
-
-
 require File.dirname(__FILE__) + "/lib/jor.rb"
-
-Rack::Handler::Mongrel.run JOR::Server.new 
-
-
+Rack::Handler::Thin.run(JOR::Server.new(Redis.new(:driver => :hiredis)), :Port => 10902) 
