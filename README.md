@@ -7,12 +7,12 @@
 
 Why not use MongoDB? 
 
-MongoDB is great but for some projects it might be an overkill to install and to maintain. JOR might suits your need for such cases, when you only can or want to deal with Redis but still would like to have storage and retrieval of arbritrary JSON documents .
+MongoDB is great but for some projects it might be an overkill to install and to maintain. JOR might suits your need for such cases, when you only can or want to deal with Redis but still would like to have storage and retrieval of arbitrary JSON documents .
 
 JOR aims to only offer: 
 
-	1) CRUD for JSON documents, and 
-	2) a JSON based query language to find the documents matching the constrains of the query document. 
+* CRUD for JSON documents, and 
+* a JSON based query language to find the documents matching the constrains of the query document. 
 
 For instance, the document…
 
@@ -53,24 +53,22 @@ and retrieved by using a query (that is also a document). For instance:
 
 will return all documents in the `restaurants` collection. 
 
-	jor.restaurants.find({`_id` => 42})
+	jor.restaurants.find({"_id" => 42})
 
 will return all documents whose `_id` is 42. The query document can be arbitrarily complex:
 
 	jor.restaurants.find({
 		"stars" => {"$gte" => 3}, 
-		"wines" => 
-			{"type" => 
-				{"$in" => ["garnatxa", "syrah"]}
-			}
-		})
+		"wines" => {"type" => 
+				{"$in" => ["garnatxa", "syrah"]}}
+	})
 
-the `find` will return resturants with 3 or more stars that also have wines of type
+the `find` will return restaurants with 3 or more stars that also have wines of type
 garnatxa or syrah.
 
 ## Getting Started
 
-#### Installation
+### Installation
 
 From rubygems
 
@@ -83,7 +81,7 @@ From source
 	gem install 
 
 
-#### Initialize
+### Initialize
 
 You can pass the your own redis handler on instantiation…
 
@@ -92,7 +90,7 @@ You can pass the your own redis handler on instantiation…
 	redis = Redis.new(:driver => :hiredis)
 	jor = JOR::Storage.new(redis)
 		
-if you don't, JOR will create a redis connections against a redis' default (localhost, port 6359). 
+if you don't, JOR will create a redis connection against redis' default (localhost, port 6379). 
 
 We advise using `hiredis` to improve performance.
 
@@ -136,15 +134,15 @@ The `_id` must be an Integer. You can either explicitly define the `_id` of the 
 
 By the way, field names cannot start with `'` or with `$`. These characters are reserved.
 
-**Options:**
+#### Options:
 
 `:exclude_fields_to_index`
 
-If you know that you will never do a search for a field you might want to exclude it from the indexes. By default all fields are indexes. Adding fields to be excluded improves the effiency of the insert.
+If you know that you will never do a search for a field you might want to exclude it from the indexes. By default all fields are indexes. Adding fields to be excluded improves the efficiency of the insert.
 
 For instance, if you want to exclude the field `description` from the index:
 
-	jor.resturant.insert(doc, 
+	jor.restaurant.insert(doc, 
       	{:excluded_fields_to_index => {"description" => true}})
 
 Excluding fields is something to consider because the performance of the insert in linear with the number of fields of the document O(#fields). An excluded fields will not affect the content of the document, it will just make it not "findable".
@@ -153,8 +151,9 @@ We advise to exclude any fields that is a string that does not serve as a symbol
 
 You can also exclude fields that are objects, for instance, if you do not want to index the types of wines:
 
-	jor.resturant.insert(doc, 
-      	{:excluded_fields_to_index => {"wines" => {"type" => true}}})		
+	jor.restaurant.insert(doc, 
+      	{:excluded_fields_to_index => {"wines" => {"type" => true}}})
+      	
 Exclusion is per document based, it will only affect the document being inserted.
 
 The field `_id` cannot be excluded.
@@ -162,7 +161,7 @@ The field `_id` cannot be excluded.
 Note that if you exclude a field from the index you will not be able to use that field on `find` operations. Search is only done over indexed fields. Unless explicitly stated all fields of the documents are indexed. 
 
 
-#### Find
+### Find
 
 To retrieve the stored documents you only need to define a query document (also a Hash). The interface is inspired on the MongoDB query language, so if you are familiar with it will be straight forward.
 
@@ -177,27 +176,26 @@ The query document is a subset of the original stored document. For the fields d
 Some `operators` are also available:
 
 * For comparisons:
-	* "$gt": greater than (>)
-	* "$gte": greater than or equal (>=) 
-	* "$lt": lower than (<)
-	* "$lte": lower than or equal (<=)
+	* "**$gt**": greater than (>)
+	* "**$gte**": greater than or equal (>=) 
+	* "**$lt**": lower than (<)
+	* "**$lte**": lower than or equal (<=)
 
 * For sets:
-	* "$in": the value must be in the defined set
-	* "$all": all values must be in the defined set
+	* "**$in**": the value must be in the defined set
+	* "**$all**": all values must be in the defined set
 
-The syntanx to use the `operators` also follows a hash 
+The syntax to use the `operators` also follows a hash 
 
-	
 	jor.restaurants.find({
 		"stars" => {"$gte" => 3}, 
 		"wines" => {
 			"year" => 2008,
-			"type" => 
-				{"$all" => 
-					["garnatxa", "syrah"]
-				}
-		})
+			"type" => {
+			  "$all" => ["garnatxa", "syrah"]
+			}
+		}		
+	})
 
 The query document will return all documents that match all 3 conditions:
 
@@ -209,7 +207,7 @@ The following `find` returns all documents whose `_id` is on the list
 
 The result of the `find` in an Array of the documents (as Hash objects). The documents are returned by ascending `_id`. 
 
-** Options **
+#### Options:
 
 `find` accepts the following options that you can override:
 
@@ -219,7 +217,7 @@ The result of the `find` in an Array of the documents (as Hash objects). The doc
 * `:reversed`, returns the documents sorted by descendant `_id`. Default if false.
 
 
-#### Delete
+### Delete
 
 Deleting a document is basically like doing a `find` with the exception that all documents that meet the query document will be deleted.
 
@@ -232,14 +230,14 @@ Deletes the document with `_id` 42 (only one document by definition).
 Deletes any document that the `zipcode` on its `address` is "08104".
 
 
-#### Update
+### Update
 
 There is no support for `updates` yet. The only "way"" is to do a `delete` by `_id` before doing an `insert` with the same `_id`.
 
 Pretty cumbersome but will be fixed in next version.
 
  
-### Benchmarks
+## Benchmarks
 
 The thing is quite fast (thanks to Redis). 
 
@@ -247,16 +245,21 @@ With a commodity laptop (macbook air) we can get over ~400 documents inserts per
 
 The complexity of an `insert` and `find` depends on the number of fields of the document and the query document respectively. For the case of the restaurant document there are 16 fields.
 
-More serious benchmarks are more than welcomed.
+Real benchmarks are more than welcomed.
 
-### TODO
+## To Do
 
 * Add update primitive
 * Create built in fields `_created_at` and `_updated_at` for each document
 * normalize strings that get to be indexed (downcase, trimmed) so that at least the == on a string is case insensitive. Tokenizing a string is easy to do, but can affect performance O(#fields + #words_on_string_fields). Perhaps as an option.
 
 
-### Contribute
+## Contribute
 
-Fork the [project](http://github.com/solso/jor/) and send pull requests.
+Fork the [project](http://github.com/solso/jor/) and send pull requests. 
+
+
+
+
+
 
