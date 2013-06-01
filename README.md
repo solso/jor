@@ -121,7 +121,7 @@ Delete all collections:
 
 Collections can be created to have **auto_incremental** ids
 
-  jor.create_collection("events", :auto_increment => true)
+	jor.create_collection("events", :auto_increment => true)
   
 A collection is either auto_incremental or not, cannot be both types at the same time. The default type is not auto-incremental.
 
@@ -184,14 +184,14 @@ The query document is a subset of the original stored document. For the fields d
 Some `operators` are also available:
 
 * For comparisons:
-	* "**$gt**": greater than (>)
-	* "**$gte**": greater than or equal (>=) 
-	* "**$lt**": lower than (<)
-	* "**$lte**": lower than or equal (<=)
+	* **$gt**: greater than (>)
+	* **$gte**: greater than or equal (>=) 
+	* **$lt**: lower than (<)
+	* **$lte**: lower than or equal (<=)
 
 * For sets:
-	* "**$in**": the value must be in the defined set
-	* "**$all**": all values must be in the defined set
+	* **$in**: the value must be in the defined set
+	* **$all**: all values must be in the defined set
 
 The syntax to use the `operators` also follows a hash 
 
