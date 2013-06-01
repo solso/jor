@@ -11,7 +11,7 @@ class CollectionTest < Test::Unit::TestCase
   end
   
   def teardown
-    @jor.test.redis.flushdb()
+    @jor.redis.flushdb()
   end
   
   def test_basic_insert_and_find_path
@@ -40,8 +40,6 @@ class CollectionTest < Test::Unit::TestCase
       sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}"})
     end
     
-    @jor.test.insert(sample_docs)
-    
     assert_equal 10, @jor.test.count()
     
     docs = @jor.test.find({})
@@ -58,7 +56,6 @@ class CollectionTest < Test::Unit::TestCase
       sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
     end
     
-    @jor.test.insert(sample_docs)
     assert_equal 10, @jor.test.count()
     
     assert_equal 0, @jor.test.delete({"_id" => 42})
@@ -330,4 +327,124 @@ class CollectionTest < Test::Unit::TestCase
     
   end
   
+  def test_auto_increment_collections  
+    @jor.create_collection("no_auto_increment")
+    @jor.create_collection("no_auto_increment2", :auto_increment => false)
+    @jor.create_collection("auto_increment",:auto_increment => true)
+
+    assert_equal false, @jor.no_auto_increment.auto_increment?
+    assert_equal false, @jor.no_auto_increment2.auto_increment?
+    assert_equal true, @jor.auto_increment.auto_increment?
+
+    10.times do |i|
+     @jor.auto_increment.insert({"foo" => "bar"})
+    end
+
+    assert_equal 10, @jor.auto_increment.count()
+
+    assert_raise JOR::DocumentDoesNotNeedId do
+     @jor.auto_increment.insert({"_id"=> 10, "foo" => "bar"})
+    end
+
+    assert_equal 10, @jor.auto_increment.count()
+    assert_equal 10, @jor.auto_increment.last_id()
+    assert_equal 0, @jor.no_auto_increment.last_id()   
+  end
+   
+  def test_last_id_for_collections
+    @jor.create_collection("no_auto_increment")
+    @jor.create_collection("auto_increment",:auto_increment => true)
+
+    assert_equal 0, @jor.no_auto_increment.last_id()   
+    assert_equal 0, @jor.auto_increment.last_id()   
+
+    10.times do |i|
+     @jor.auto_increment.insert({"foo" => "bar"})
+    end
+
+    assert_equal 10, @jor.auto_increment.last_id()
+    assert_not_nil @jor.auto_increment.find({"_id" => 10}).first
+
+    10.times do |i|
+     @jor.no_auto_increment.insert({"_id" => i+10, "foo" => "bar"})
+    end
+
+    assert_equal 19, @jor.no_auto_increment.last_id()
+    assert_not_nil @jor.no_auto_increment.find({"_id" => 10}).first   
+  end
+
+  def test_ids_expections_for_collections  
+    @jor.create_collection("no_auto_increment")
+    @jor.create_collection("auto_increment",:auto_increment => true)
+
+    assert_raise JOR::DocumentDoesNotNeedId do
+      @jor.auto_increment.insert({"_id"=> 10, "foo" => "bar"})
+    end
+
+    assert_raise JOR::DocumentNeedsId do
+      @jor.no_auto_increment.insert({"foo" => "bar"})
+    end
+
+    assert_raise JOR::InvalidDocumentId do 
+      @jor.no_auto_increment.insert({"_id"=> "10", "foo" => "bar"})
+    end
+
+    assert_raise JOR::InvalidDocumentId do 
+      @jor.no_auto_increment.insert({"_id"=> -1, "foo" => "bar"})
+    end 
+  end
+
+  def test_ids_will_be_sorted
+   v = [1, 10, 100, 1000, 10000, 2, 20, 200, 2000, 20000]
+   v_sorted = v.sort
+   v_shuffled = v.shuffle
+
+   v_shuffled.each do |val|
+     @jor.test.insert({"_id" => val, "foo" => "bar"})
+   end
+  
+   res = @jor.test.find({})      
+   assert_equal v.size, res.size
+
+   res.each_with_index do |item, i|
+     assert_equal v_sorted[i], item["_id"]
+   end
+  end
+  
+  def test_concurrent_inserts
+    
+    inserted_by_thread_1 = []
+    inserted_by_thread_2 = []
+    
+    t1 = Thread.new {
+      1000.times do |i|
+        begin
+          doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => i}))
+          inserted_by_thread_1 << i
+        rescue Exception => e
+        end
+      end 
+    }
+
+    t2 = Thread.new {
+      1000.times do |i|
+        begin
+          doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => i}))
+          inserted_by_thread_2 << i
+        rescue Exception => e
+        end
+      end 
+    }
+    
+    t1.join()
+    t2.join()
+    
+    res = @jor.test.find({})
+    assert_equal 1000, res.size
+    assert_equal 0, (inserted_by_thread_1 & inserted_by_thread_2).size
+    assert_equal 1000, (inserted_by_thread_1 | inserted_by_thread_2).size
+    assert_equal true, inserted_by_thread_1.size > 0
+    assert_equal true, inserted_by_thread_2.size > 0
+  end
+
 end

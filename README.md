@@ -3,19 +3,16 @@
 
 ## Description
 
-**JOR** is the acronym for **J**SON **o**ver **R**edis. This gem allows to use Redis as a data-store for JSON documents. It provides a MongoDB-like query language for fast data retrieval.
+**JOR** is the acronym for **J**SON **o**ver **R**edis. 
 
-Why not use MongoDB? 
-
-MongoDB is great but for some projects it might be an overkill to install and to maintain. JOR might suits your need for such cases, when you only can or want to deal with Redis but still would like to have storage and retrieval of arbitrary JSON documents .
+The project provides storage for JSON documents that uses Redis as the backend data-store. JOR also provides a MongoDB-like query language for fast retrieval. JOR is heavily inspired by the API of MongoDB. 
 
 JOR aims to only offer: 
 
 * CRUD for JSON documents, and 
-* a JSON based query language to find the documents matching the constrains of the query document. 
+* a JSON based query language to find the documents matching the constrains of the query document
 
-For instance, the document…
-
+For instance, the document
 
 	doc = {
         "_id" => 42,
@@ -108,7 +105,11 @@ To create a collection:
 
 Number of documents in collection:
 
-	jor.restaurant.count() 
+	jor.restaurant.count()
+	
+Id of the last document inserted in the collection, zero if empty
+
+  jor.restaurant.last_id()
 
 Delete a collection with all its documents:
 
@@ -118,6 +119,13 @@ Delete all collections:
 
 	jor.destroy_all()
 
+Collections can be created to have **auto_incremental** ids
+
+  jor.create_collection("events", :auto_increment => true)
+  
+A collection is either auto_incremental or not, cannot be both types at the same time. The default type is not auto-incremental.
+
+Auto-incremental collections expect documents without the field `_id`, which will be assigned automatically upon insertion.
 
 ### Insert
 
@@ -128,9 +136,9 @@ To insert documents to a collection just do `insert`. The parameters can be eith
 
 There is marginal benefits to use bulk insertion, it's mostly for convenience.
 
-Every document stored in JOR has an field called **´_id´** that is unique within a collection. 
+Every document stored in JOR has an field called **´_id´** that is unique within a collection. Trying to insert a document with an `_id` that already exists will raise an exception.
 
-The `_id` must be an Integer. You can either explicitly define the `_id` of the document or leave if undefined and let the system assign one, will be auto-incremental.
+The `_id` must be a natural number (>=0), remember that you only need to define the field `_id` when dealing with collections that are not auto-incremental (the default case).
 
 By the way, field names cannot start with `'` or with `$`. These characters are reserved.
 
@@ -232,18 +240,16 @@ Deletes any document that the `zipcode` on its `address` is "08104".
 
 ### Update
 
-There is no support for `updates` yet. The only "way"" is to do a `delete` by `_id` before doing an `insert` with the same `_id`.
-
-Pretty cumbersome but will be fixed in next version.
+There is no support for `updates` yet. The only "way"" is to do a `delete` by `_id` before doing an `insert` with the same `_id`. Remember that `insert` check for uniqueness of `ids`, therefore you must do a delete first. Pretty cumbersome but will be fixed in next version.
 
  
 ## Benchmarks
 
 The thing is quite fast (thanks to Redis). 
 
-With a commodity laptop (macbook air) we can get over ~400 documents inserts per second for the restaurant example used in this README.
+With a commodity laptop (macbook air) we can get between 300~400 documents inserts per second for the restaurant example used in this README.
 
-The complexity of an `insert` and `find` depends on the number of fields of the document and the query document respectively. For the case of the restaurant document there are 16 fields.
+The complexity of an `insert` and `find` operations depend on the number of fields of the document and the query document respectively. For the case of the restaurant document there are 16 fields.
 
 Real benchmarks are more than welcomed.
 
@@ -251,7 +257,7 @@ Real benchmarks are more than welcomed.
 
 * Add update primitive
 * Create built in fields `_created_at` and `_updated_at` for each document
-* normalize strings that get to be indexed (downcase, trimmed) so that at least the == on a string is case insensitive. Tokenizing a string is easy to do, but can affect performance O(#fields + #words_on_string_fields). Perhaps as an option.
+* normalize indexed strings (downcase, trimmed, something else) so that at least the == on a string is case insensitive. Tokenizing a string is easy to do, but can affect performance O(#fields + #words_on_string_fields). Perhaps as an option.
 
 
 ## Contribute

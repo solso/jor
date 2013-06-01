@@ -71,8 +71,7 @@ class StorageTest < Test::Unit::TestCase
     
   end
   
-  def test_switching_between_collections
-    
+  def test_switching_between_collections  
     @jor.create_collection("restaurant")
     @jor.create_collection("cs")
     
@@ -94,6 +93,6 @@ class StorageTest < Test::Unit::TestCase
       @jor.restaurant.count()
     end
     assert_equal 100, @jor.cs.count()
-    
-  end      
+  end
+       
 end

@@ -20,7 +20,31 @@ module JOR
       super %(Invalid character in field name "#{field}". Cannot start with '_' or '$')
     end
   end
+
+  class InvalidDocumentId < Error
+    def initialize(id)
+      super %(The document "_id" must be a positive integer (>=0), #{id} is not valid)
+    end
+  end
+
+  class DocumentIdAlreadyExists < Error
+    def initialize(id, name)
+      super %(A document with _id #{id} already exists in collection "{name}")
+    end
+  end
   
+  class DocumentNeedsId < Error
+    def initialize(name)
+      super %(The collection #{name} is not auto-incremental. You must define the "_id" of the document")
+    end
+  end
+
+  class DocumentDoesNotNeedId < Error
+    def initialize(name)
+      super %(The collection #{name} is auto-incremental. You must not define the "_id" of the document")
+    end
+  end
+
   class IncompatibleSelectors < Error
     def initialize(str)
       super %(Incompatible selectors in "#{str}". They must be grouped like this #{Storage::SELECTORS})

@@ -30,10 +30,11 @@ module JOR
       collections.keys
     end
     
-    def create_collection(name)
+    def create_collection(name, options = {:auto_increment => false})
       raise CollectionNotValid.new(name) if self.respond_to?(name)
       is_new = redis.sadd("#{Storage::NAMESPACE}/collections",name)
       raise CollectionAlreadyExists.new(name) if is_new==false or is_new==0
+      redis.set("#{Storage::NAMESPACE}/collection/#{name}/auto-increment", options[:auto_increment])
       reload_collections
     end
     
@@ -41,6 +42,7 @@ module JOR
       raise CollectionDoesNotExist.new(name) unless @collections[name]
       coll_to_be_removed = @collections[name]
       redis.srem("#{Storage::NAMESPACE}/collections",name)
+      redis.del("#{Storage::NAMESPACE}/collection/#{name}/auto-increment")
       reload_collections
       coll_to_be_removed.delete({})
       raise Exception.new("CRITICAL! Destroying the collection left some documents hanging") if coll_to_be_removed.count()!=0
@@ -58,7 +60,9 @@ module JOR
       coll = redis.smembers("#{Storage::NAMESPACE}/collections")
       tmp_collections = {}
       coll.each do |c|
-        tmp_collections[c] = Collection.new(self,c)
+        redis_auto_incr = redis.get("#{Storage::NAMESPACE}/collection/#{c}/auto-increment")
+        redis_auto_incr=="true" ? auto_increment = true : auto_increment = false
+        tmp_collections[c] = Collection.new(self, c, auto_increment)
       end
       @collections = tmp_collections
     end

@@ -9,9 +9,10 @@ module JOR
       :excluded_fields_to_index => {}
     }
       
-    def initialize(storage, name)
+    def initialize(storage, name, auto_increment = false)
       @storage = storage
       @name = name
+      @auto_increment = auto_increment
     end 
     
     def name
@@ -25,6 +26,10 @@ module JOR
     def storage 
       @storage
     end
+    
+    def auto_increment?
+      @auto_increment
+    end
               
     def insert(docs, options = {})
       raise NotInCollection.new unless name
@@ -32,26 +37,44 @@ module JOR
             
       docs.is_a?(Array) ? docs_list = docs : docs_list = [docs]
     
-      docs_list.each do |doc|  
-        doc["_id"] = next_id if doc["_id"].nil?
-        id = doc["_id"]
+      docs_list.each_with_index do |doc, i|
+        
+        if auto_increment?
+          raise DocumentDoesNotNeedId.new(name) unless doc["_id"].nil?
+          doc["_id"] = next_id()
+        else
+          raise DocumentNeedsId.new(name) if doc["_id"].nil?
+        end  
+        
         encd = JSON::generate(doc)
         paths = Doc.paths("!",doc)
-      
+        id = doc["_id"]
+        
+        raise InvalidDocumentId.new(id) if !id.is_a?(Numeric) || id < 0
+         
         if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
           excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])
           paths = Doc.difference(paths, excluded_paths)
         end
-      
-        redis.multi do 
-          redis.set(doc_key(id),encd)
-          redis.zadd(doc_sset_key(),id,id)
-          paths.each do |path|
-            add_index(path,id) 
-          end
-        end
-      end
-      
+        
+        redis.watch(doc_key(id))
+        exists = redis.get(doc_key(id))
+        
+        if !exists.nil?
+          redis.multi
+          redis.exec
+          raise DocumentIdAlreadyExists.new(id, name)
+        else 
+          res = redis.multi do
+            redis.set(doc_key(id),encd)
+            redis.zadd(doc_sset_key(),id,id)
+            paths.each do |path|
+              add_index(path,id) 
+            end
+          end        
+          raise DocumentIdAlreadyExists.new(id, name) unless exists.nil?        
+        end   
+      end      
       docs
     end
     
@@ -139,7 +162,15 @@ module JOR
     end
     
     def last_id
-      redis.get("#{Storage::NAMESPACE}/#{name}/next_id") || 0
+      if auto_increment?
+        val = redis.get("#{Storage::NAMESPACE}/#{name}/next_id")
+        return val.to_i unless val.nil?
+        return 0
+      else
+        val = redis.zrevrange(doc_sset_key(),0,0)
+        return 0 if val.nil? || val.size==0
+        return val.first.to_i
+      end
     end
     
     protected
