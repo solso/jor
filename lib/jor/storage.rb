@@ -31,9 +31,10 @@ module JOR
     end
     
     def create_collection(name, options = {:auto_increment => false})
+      options = {:auto_increment => false}.merge(options.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo})
       raise CollectionNotValid.new(name) if self.respond_to?(name)
       is_new = redis.sadd("#{Storage::NAMESPACE}/collections",name)
-      raise CollectionAlreadyExists.new(name) if is_new==false or is_new==0
+      raise CollectionAlreadyExists.new(name) if is_new==false or is_new==0  
       redis.set("#{Storage::NAMESPACE}/collection/#{name}/auto-increment", options[:auto_increment])
       reload_collections
     end
