@@ -413,38 +413,69 @@ class CollectionTest < Test::Unit::TestCase
   
   def test_concurrent_inserts
     
-    inserted_by_thread_1 = []
-    inserted_by_thread_2 = []
+    threads = []
+    inserted_by_thread = []
+    5.times do |i|
+      inserted_by_thread[i] = []
+      threads << Thread.new {
+        id = i
+        1000.times do |j|
+          begin
+            doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => j}))
+            inserted_by_thread[id] << j unless doc.nil?
+          rescue Exception => e
+          end
+        end 
+      }
+    end
     
-    t1 = Thread.new {
-      1000.times do |i|
-        begin
-          doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => i}))
-          inserted_by_thread_1 << i
-        rescue Exception => e
-        end
-      end 
-    }
-
-    t2 = Thread.new {
-      1000.times do |i|
-        begin
-          doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => i}))
-          inserted_by_thread_2 << i
-        rescue Exception => e
-        end
-      end 
-    }
-    
-    t1.join()
-    t2.join()
-    
+    threads.each do |t|
+      t.join()
+    end
+   
     res = @jor.test.find({})
     assert_equal 1000, res.size
-    assert_equal 0, (inserted_by_thread_1 & inserted_by_thread_2).size
-    assert_equal 1000, (inserted_by_thread_1 | inserted_by_thread_2).size
-    assert_equal true, inserted_by_thread_1.size > 0
-    assert_equal true, inserted_by_thread_2.size > 0
+    
+    all = inserted_by_thread[0]
+    inserted_by_thread.each do |curr|
+      all =  all & curr
+    end
+    assert_equal 0, all.size
+
+    all = inserted_by_thread[0]
+    inserted_by_thread.each do |curr|
+      all =  all | curr
+    end
+    assert_equal 1000, all.size
+
+    inserted_by_thread.each do |curr|
+      assert_equal true, curr.size > 0
+    end
+    
+  end
+  
+  def test_intervals
+    1000.times do |i|
+      @jor.test.insert(create_sample_doc_restaurant({"_id" => i, "at" => i}))
+    end
+    
+    docs = @jor.test.find({})
+    assert_equal 1000, docs.size
+    
+    docs = @jor.test.find({"at" => {"$lt" => 100}})
+    assert_equal 100, docs.size
+  
+    docs = @jor.test.find({"at" => {"$lt" => 100, "$gte" => 50}})
+    assert_equal 50, docs.size
+    
+    curr = 50
+    docs.each do |doc|
+      assert_equal curr, doc["_id"]
+      curr+=1 
+    end
+    
+    docs = @jor.test.find({"at" => {"$lt" => 100, "$gte" => 150}})
+    assert_equal 0, docs.size
   end
 
 end
