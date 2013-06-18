@@ -1,6 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 
-class ServerTest < Test::Unit::TestCase
+class ServerTest < JOR::Test::Unit::TestCase
   include Rack::Test::Methods
   
   def app
@@ -8,15 +8,13 @@ class ServerTest < Test::Unit::TestCase
   end
   
   def setup
-    redis = Redis.new(:db => 9, :driver => :hiredis)
-    @jor = JOR::Storage.new(redis)
-    list = @jor.redis.keys("*")
-    raise "Cannot run the tests safely!! The test DB (:db => 9) is not empty, and the test might flush the data. Stopping." if list.size>0
+    super
+    @jor = JOR::Storage.new(Redis.new(:db => 9, :driver => :hiredis))
     @jor.create_collection("test")
   end
   
   def teardown
-    @jor.redis.flushdb()
+    @jor.redis.flushdb() if @safe_to_remove
   end
   
   def test_calling_methods
