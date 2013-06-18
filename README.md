@@ -246,7 +246,7 @@ Updating a document is also doing a `find` and doing a deep merge of the documen
  
 Updates (or add if did not exist) the `address` => `zipcode` of the document with `_id` 42.
 
-  jor.restaurants.update({"address" => {"zipcode" => "08105"}} , {"address" => {"zipcode" => "08106"}})
+	jor.restaurants.update({"address" => {"zipcode" => "08105"}} , {"address" => {"zipcode" => "08106"}})
 
 Updates all documents with `zipcode` "08105" to "08106". Updates are __not__ limited to a single document. The update applies
 to all the documents that match the first argument of the `update` operation.
@@ -255,7 +255,7 @@ Indexes are managed in the same way than an `insert` operations, so that you can
 
 If the update is a removal of a field, you must do it like this:
 
-  jor.restaurants.update({"_id" => 42}, {"address" => nil)
+	jor.restaurants.update({"_id" => 42}, {"address" => nil)
   
 Note that this will remove all the fields that hang from `address`, whether it is a value, array or a hash.    
   
