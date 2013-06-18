@@ -80,4 +80,11 @@ module JOR
       super %(Field _id cannot be excluded from the index)
     end
   end
-end
+  
+  class CouldNotFindPathToFromIndex < Error
+    def initialize(str)
+      super %(Could not find path_to from index #{str})
+    end
+  end
+  
+end 

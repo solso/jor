@@ -86,6 +86,55 @@ module JOR
       end
       ids.size
     end
+    
+    def update(doc_dest, doc_source, options = {})
+      raise NotInCollection.new unless name
+      opt = merge_and_symbolize_options(options)
+      
+      paths_all = Doc.paths("!",doc_source)
+         
+      #if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
+      #  excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])
+      #  paths_to_index = Doc.difference(paths, excluded_paths)
+      #end
+      
+      docs = find(doc_dest, {:max_documents => -1})
+      
+      docs.each do |doc|
+      
+        indexes_doc = redis.smembers(idx_set_key(doc["_id"]))
+        
+        to_remove = []
+        indexes_doc.each do |index_doc|
+          ## for each index there is, check if it's affected by the new paths
+          path_to_from_index = get_path_to_from_index(index_doc)
+          paths_all.each do |path|
+            if path["path_to"]==path_to_from_index 
+              to_remove << index_doc
+              break
+            end
+          end
+        end
+
+        redis.pipelined do
+          to_remove.each do |index|
+            remove_index(index, doc["_id"])
+          end
+        end  
+          
+        ## now, the indexes that refer to the changed fields are gone
+
+        new_doc = doc.merge(doc_source)
+        encd = JSON::generate(new_doc)
+        
+        res = redis.multi do
+          redis.set(doc_key(new_doc["_id"]),encd)
+          paths_all.each do |path|
+            add_index(path,new_doc["_id"]) 
+          end
+        end
+      end
+    end
         
     def count
       raise NotInCollection.new unless name
@@ -280,19 +329,22 @@ module JOR
       
       redis.pipelined do
         indexes.each do |index|
-  
-          v = index.split("_")
-          key = v[0..v.size-2].join("_")
-          if v.last=="srem"
-            redis.srem(key, id)
-          elsif v.last=="zrem"
-            redis.zrem(key, id)
-          end
+          remove_index(index, id)
         end
       
         redis.del(idx_set_key(id))
         redis.zrem(doc_sset_key(),id)
         redis.del(doc_key(id))
+      end
+    end
+    
+    def remove_index(index, id)
+      v = index.split("_")
+      key = v[0..v.size-2].join("_")
+      if v.last=="srem"
+        redis.srem(key, id)
+      elsif v.last=="zrem"
+        redis.zrem(key, id)
       end
     end
         
@@ -311,6 +363,20 @@ module JOR
       else
         raise TypeNotSupported.new(path["obj"].class)
       end
+    end
+    
+    def get_path_to_from_index(index)
+      
+      ini_pos = index.index("/!")
+      ini_pos += 1
+  
+      end_pos = index.index("/String")
+      end_pos = index.index("/Numeric") if end_pos.nil?
+        
+      raise CouldNotFindPathToFromIndex.new(index) if ini_pos.nil? || end_pos.nil?
+      end_pos -= 1
+          
+      return index[ini_pos..end_pos]    
     end
     
     def idx_key(path_to, type, obj = nil)

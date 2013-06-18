@@ -477,5 +477,27 @@ class CollectionTest < Test::Unit::TestCase
     docs = @jor.test.find({"at" => {"$lt" => 100, "$gte" => 150}})
     assert_equal 0, docs.size
   end
+  
+  def test_update
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+    
+    @jor.test.update({"name" => "foo_4"}, {"name" => "foo_changed_4", "additional_field" => 3})
+    
+    docs = @jor.test.find({"name" => "foo_4"})
+    assert_equal 0, docs.size()
+        
+    [{"additional_field" => 3}, {"name" => "foo_changed_4"}, {"year" => 2004}].each do |search_doc|
+      docs = @jor.test.find(search_doc)
+      assert_equal 1, docs.size()
+      assert_equal "foo_changed_4", docs.first["name"]
+      assert_equal 3, docs.first["additional_field"]
+      assert_equal 2004, docs.first["year"]
+      assert_equal "bar", docs.first["foo"]
+    end
+              
+  end
 
 end
