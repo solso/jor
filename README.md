@@ -242,11 +242,11 @@ Deletes any document that the `zipcode` on its `address` is "08104".
 
 Updating a document is also doing a `find` and doing a merge of the documents found and the source doc. For instance,
 
-  jor.restaurants.update({"_id" => 42}, {"address" => {"zipcode" => "08105"}})
+	jor.restaurants.update({"_id" => 42}, {"address" => {"zipcode" => "08105"}})
  
 Updates (or add if did not exist) the `address` => `zipcode` of the document with `_id` 42.
 
-  jor.restaurants.update({"address" => {"zipcode" => "08105"}} , {"address" => {"zipcode" => "08106"}})
+  	jor.restaurants.update({"address" => {"zipcode" => "08105"}} , {"address" => {"zipcode" => "08106"}})
 
 Updates all documents with `zipcode` "08105" to "08106". Updates are __not__ limited to a single document.
 
@@ -254,7 +254,7 @@ Indexes are managed in the same way than an `insert` operations, so that you can
 
 If the update is a removal of a field, you must do it like this: (this part is not implemented yet)
 
-  jor.restaurants.update({"_id" => 42}, {"address" => nil)
+  	jor.restaurants.update({"_id" => 42}, {"address" => nil)
   
   
  
