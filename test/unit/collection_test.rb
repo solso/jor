@@ -421,7 +421,7 @@ class CollectionTest < JOR::Test::Unit::TestCase
           begin
             doc = @jor.test.insert(create_sample_doc_restaurant({"_id" => j}))
             inserted_by_thread[id] << j unless doc.nil?
-            sleep(0.01) if (j%200==0)
+            sleep(0.1) if (j%200==0)
           rescue Exception => e
           end
         end 
@@ -432,7 +432,7 @@ class CollectionTest < JOR::Test::Unit::TestCase
       t.join()
     end
    
-    res = @jor.test.find({})
+    res = @jor.test.find({},{:max_documents => -1})
     assert_equal 1000, res.size
     
     all = inserted_by_thread[0]
@@ -445,12 +445,7 @@ class CollectionTest < JOR::Test::Unit::TestCase
     inserted_by_thread.each do |curr|
       all =  all | curr
     end
-    assert_equal 1000, all.size
-
-    inserted_by_thread.each do |curr|
-      assert_equal true, curr.size > 0
-    end
-    
+    assert_equal 1000, all.size    
   end
   
   def test_intervals

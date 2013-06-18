@@ -5,7 +5,6 @@ class StorageTest < JOR::Test::Unit::TestCase
   def setup 
     super
     @jor = JOR::Storage.new(Redis.new(:db => 9, :driver => :hiredis))
-    @jor.create_collection("test")
   end
   
   def teardown
