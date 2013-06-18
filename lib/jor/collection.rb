@@ -89,21 +89,21 @@ module JOR
     
     def update(doc_dest, doc_source, options = {})
       raise NotInCollection.new unless name
+      doc_source.delete("_id") unless doc_source["_id"].nil?
       opt = merge_and_symbolize_options(options)
       
       paths_all = Doc.paths("!",doc_source)
+      excluded_paths = []
       
-      if options.size>0
-        require 'ruby-debug'
-        debugger
+      if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
+        excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])
       end
-         
-      #if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
-      #  excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])
-      #  paths_to_index = Doc.difference(paths, excluded_paths)
-      #end
+  
+      paths_to_index = Doc.difference(paths_all, excluded_paths)
       
       docs = find(doc_dest, {:max_documents => -1})
+      
+      results = []
       
       docs.each do |doc|
       
@@ -113,32 +113,46 @@ module JOR
         indexes_doc.each do |index_doc|
           ## for each index there is, check if it's affected by the new paths
           path_to_from_index = get_path_to_from_index(index_doc)
+
           paths_all.each do |path|
-            if path["path_to"]==path_to_from_index 
-              to_remove << index_doc
-              break
-            end
+            if path["obj"].kind_of?(NilClass)
+              if path["path_to"]==path_to_from_index
+                to_remove << index_doc
+              elsif path_to_from_index.index("#{path["path_to"]}/")!=nil
+                to_remove << index_doc
+              end
+            else
+              if path["path_to"]==path_to_from_index 
+                to_remove << index_doc  
+              end
+            end  
           end
         end
 
         redis.pipelined do
           to_remove.each do |index|
             remove_index(index, doc["_id"])
+            redis.srem(idx_set_key(doc["_id"]),index)
           end
         end  
           
         ## now, the indexes that refer to the changed fields are gone
-
-        new_doc = doc.merge(doc_source)
+        new_doc = Doc.deep_merge(doc, doc_source)
         encd = JSON::generate(new_doc)
         
         res = redis.multi do
           redis.set(doc_key(new_doc["_id"]),encd)
-          paths_all.each do |path|
-            add_index(path,new_doc["_id"]) 
+          ## note that it's not paths_all but only the ones who are not excluded
+          paths_to_index.each do |path|
+            add_index(path,new_doc["_id"])
           end
         end
+        
+        results << new_doc
+        
       end
+      
+      return results
     end
         
     def count
@@ -319,9 +333,9 @@ module JOR
         end   
       end
       
-      if path["obj"].kind_of? String
+      if path["obj"].kind_of?(String)
         return redis.smembers(idx_key(path["path_to"], String, path["obj"])).sort
-      elsif path["obj"].kind_of? Numeric
+      elsif path["obj"].kind_of?(Numeric)
         return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"])).sort
       else
         raise TypeNotSupported.new(value.class)
@@ -365,6 +379,9 @@ module JOR
         key = idx_key(path["path_to"], Numeric)
         redis.zadd(key, path["obj"], id)
         redis.sadd(idx_set_key(id), "#{key}_zrem")
+      elsif path["obj"].kind_of?(NilClass)
+        ## do nothing, don't try to index but don't raise
+        ## exception either
       else
         raise TypeNotSupported.new(path["obj"].class)
       end

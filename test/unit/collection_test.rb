@@ -500,6 +500,51 @@ class CollectionTest < Test::Unit::TestCase
               
   end
   
+  def test_update_with_id  
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+    
+    docs = @jor.test.update({"name" => "foo_4"}, {"name" => "foo_changed_4", "additional_field" => 3, "_id" => 666})
+    assert_equal 1, docs.size()
+    assert_equal "foo_changed_4", docs.first["name"]
+    assert_equal 4, docs.first["_id"]
+    
+    docs = @jor.test.find({"_id" => 4})
+    assert_equal 1, docs.size()
+    assert_equal "foo_changed_4", docs.first["name"]
+    assert_equal 4, docs.first["_id"]
+  end
+  
+  def test_update_with_excluded_fields
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+    
+    docs = @jor.test.update({"foo" => "bar"}, {"foo" => "bar_changed", "description" => "long ass description"}, 
+      {:excluded_fields_to_index => {"description" => true}})
+      
+    assert_equal 5, docs.size()
+    assert_equal "long ass description", docs.first["description"]
+    assert_equal "long ass description", docs.last["description"]
+    
+    docs = @jor.test.find({"foo" => "bar_changed"})
+    assert_equal 5, docs.size()
+    assert_equal "long ass description", docs.first["description"]
+    assert_equal "long ass description", docs.last["description"]
+    
+    docs = @jor.test.find({"description" => "long ass description"})
+    assert_equal 0, docs.size()
+    
+    docs = @jor.test.update({"foo" => "bar_changed"}, {"description" => "long ass description"})
+    assert_equal 5, docs.size()  
+    
+    docs = @jor.test.find({"description" => "long ass description"})
+    assert_equal 5, docs.size()
+  end
+  
   def test_update_massive_update
 
     sample_docs = []
@@ -516,7 +561,6 @@ class CollectionTest < Test::Unit::TestCase
     docs = @jor.test.find({"bar" => "bar_added"})
     assert_equal 0, docs.size()
     
-    
     @jor.test.update({"foo" => "bar"}, {"foo" => "bar_changed", "bar" => "bar_added"})
     
     docs = @jor.test.find({"foo" => "bar"})
@@ -527,17 +571,16 @@ class CollectionTest < Test::Unit::TestCase
 
     docs = @jor.test.find({"bar" => "bar_added"})
     assert_equal 5, docs.size()
-    
   end
   
-  def WIP_test_update_remove_field
+  def test_update_remove_field
     
     sample_docs = []
     5.times do |i|
       sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
     end
 
-    @jor.test.update({"foo" => "bar"}, {"foo" => nil}, {"a"=>2})
+    @jor.test.update({"foo" => "bar"}, {"foo" => nil, "xtra" => "large"})
 
     docs = @jor.test.find({"foo" => "bar"})
     assert_equal 0, docs.size()
@@ -545,10 +588,96 @@ class CollectionTest < Test::Unit::TestCase
     docs = @jor.test.find({}) 
     assert_equal 5, docs.size()
            
-    docs.each do |d|
-      puts d
+    docs.each_with_index do |d, i|
+      assert_equal "foo_#{i}", d["name"]
+      assert_equal i, d["_id"]
+      assert_equal nil, d["foo"]
+      assert_equal "large", d["xtra"]
     end
         
+    @jor.test.update({"xtra" => "large"}, {"foo" => "bar"})
+    
+    docs = @jor.test.find({"foo" => "bar"})
+    assert_equal 5, docs.size()
+    
+    docs.each_with_index do |d, i|
+      assert_equal "foo_#{i}", d["name"]
+      assert_equal i, d["_id"]
+      assert_equal "bar", d["foo"]
+      assert_equal "large", d["xtra"]
+    end
+    
   end
+  
+  def test_update_remove_filed_nested
+    
+    @jor.test.insert(create_sample_doc_restaurant({"_id" => 42}))
+    docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
+    assert_equal 1, docs.size()
+    indexes_before = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
+
+    @jor.test.update({"_id" => 42}, {"address" => {"zipcode" => nil}})
+    docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
+    assert_equal 0, docs.size()
+    
+    indexes_after = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
+    assert_equal indexes_before.size() -1, indexes_after.size()
+    assert_equal false, indexes_after.include?("jor/test/idx/!/address/zipcode/String/08104_srem")
+    
+    docs = @jor.test.find({"_id" => 42})
+    assert_equal 1, docs.size()
+    assert_equal "Ann Arbor", docs.first["address"]["city"]
+    assert_equal "Main St 100", docs.first["address"]["address"]
+
+    @jor.test.update({"_id" => 42}, {"address" => nil})
+    docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
+    assert_equal 0, docs.size()
+    
+    indexes_after = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
+    assert_equal indexes_before.size() - 3, indexes_after.size()
+    assert_equal false, indexes_after.include?("jor/test/idx/!/address/zipcode/String/08104_srem")
+    assert_equal false, indexes_after.include?("jor/test/idx/!/address/address/String/Main St 100_srem")
+    assert_equal false, indexes_after.include?("jor/test/idx/!/address/city/String/Ann Arbor_srem")
+
+  end
+  
+  def test_update_arrays
+    
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => [1,2,3,4,5], "year" => 2000+i })
+    end
+    
+    @jor.test.update({"_id" => 4}, {"foo" => [6,7,8]})
+    docs = @jor.test.find({"_id" => 4})
+    assert_equal 1, docs.size()
+    assert_equal [6,7,8].sort, docs.first["foo"].sort
+    
+    @jor.test.update({"_id" => 4}, {"foo" => {"bar" => [9, 10]}})
+    docs = @jor.test.find({"_id" => 4})
+    assert_equal 1, docs.size()
+    assert_equal [9, 10].sort, docs.first["foo"]["bar"].sort
+    
+    @jor.test.update({"_id" => 4}, {"foo" => {"bar" => [11, 12]}})
+    docs = @jor.test.find({"_id" => 4})
+    assert_equal 1, docs.size()
+    assert_equal [11, 12].sort, docs.first["foo"]["bar"].sort
+    
+    @jor.test.update({"_id" => 4}, {"foo" => nil})
+    docs = @jor.test.find({"_id" => 4})
+    assert_equal 1, docs.size()
+    assert_equal nil, docs.first["foo"]
+    
+    indexes = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,4))
+    
+    assert_equal ["jor/test/idx/!/name/String/foo_4_srem",
+                  "jor/test/idx/!/_id/Numeric/4_zrem",
+                  "jor/test/idx/!/year/Numeric_zrem",
+                  "jor/test/idx/!/year/Numeric/2004_zrem",
+                  "jor/test/idx/!/_id/Numeric_zrem"].sort, indexes.sort
+    
+  end
+  
+  
 
 end

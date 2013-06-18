@@ -50,6 +50,13 @@ module JOR
       end  
       return res
     end
+    
+    def self.deep_merge(dest, source)
+      res = Hash.new
+      dest.merge(source) do |key, old_v, new_v|
+        res[key] = ((old_v.class == Hash) && (new_v.class == Hash))  ? deep_merge(old_v, new_v) : new_v
+      end
+    end
 
   end
 end
