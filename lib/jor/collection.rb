@@ -92,6 +92,11 @@ module JOR
       opt = merge_and_symbolize_options(options)
       
       paths_all = Doc.paths("!",doc_source)
+      
+      if options.size>0
+        require 'ruby-debug'
+        debugger
+      end
          
       #if !opt[:excluded_fields_to_index].nil? && opt[:excluded_fields_to_index].size>0
       #  excluded_paths = Doc.paths("!",opt[:excluded_fields_to_index])

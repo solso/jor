@@ -252,7 +252,7 @@ Updates all documents with `zipcode` "08105" to "08106". Updates are __not__ lim
 
 Indexes are managed in the same way than an `insert` operations, so that you can use `:exclude_fields_to_index` as options.
 
-If the update is a removal of a field, you must do it like this:
+If the update is a removal of a field, you must do it like this: (this part is not implemented yet)
 
   jor.restaurants.update({"_id" => 42}, {"address" => nil)
   

@@ -499,5 +499,56 @@ class CollectionTest < Test::Unit::TestCase
     end
               
   end
+  
+  def test_update_massive_update
+
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+    
+    docs = @jor.test.find({"foo" => "bar"})
+    assert_equal 5, docs.size()
+
+    docs = @jor.test.find({"foo" => "bar_changed"})
+    assert_equal 0, docs.size()
+
+    docs = @jor.test.find({"bar" => "bar_added"})
+    assert_equal 0, docs.size()
+    
+    
+    @jor.test.update({"foo" => "bar"}, {"foo" => "bar_changed", "bar" => "bar_added"})
+    
+    docs = @jor.test.find({"foo" => "bar"})
+    assert_equal 0, docs.size()
+
+    docs = @jor.test.find({"foo" => "bar_changed"})
+    assert_equal 5, docs.size()
+
+    docs = @jor.test.find({"bar" => "bar_added"})
+    assert_equal 5, docs.size()
+    
+  end
+  
+  def WIP_test_update_remove_field
+    
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+    end
+
+    @jor.test.update({"foo" => "bar"}, {"foo" => nil}, {"a"=>2})
+
+    docs = @jor.test.find({"foo" => "bar"})
+    assert_equal 0, docs.size()
+        
+    docs = @jor.test.find({}) 
+    assert_equal 5, docs.size()
+           
+    docs.each do |d|
+      puts d
+    end
+        
+  end
 
 end
