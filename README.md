@@ -229,7 +229,7 @@ The result of the `find` in an Array of the documents (as Hash objects). The doc
 
 Deleting a document is basically like doing a `find` with the exception that all documents that meet the query document will be deleted.
 
-	jor.restaurands.find({"_id" => 42})
+	jor.restaurants.find({"_id" => 42})
 
 Deletes the document with `_id` 42 (only one document by definition).
 
@@ -240,8 +240,23 @@ Deletes any document that the `zipcode` on its `address` is "08104".
 
 ### Update
 
-There is no support for `updates` yet. The only "way"" is to do a `delete` by `_id` before doing an `insert` with the same `_id`. Remember that `insert` check for uniqueness of `ids`, therefore you must do a delete first. Pretty cumbersome but will be fixed in next version.
+Updating a document is also doing a `find` and doing a merge of the documents found and the source doc. For instance,
 
+  jor.restaurants.update({"_id" => 42}, {"address" => {"zipcode" => "08105"}})
+ 
+Updates (or add if did not exist) the `address` => `zipcode` of the document with `_id` 42.
+
+  jor.restaurants.update({"address" => {"zipcode" => "08105"}} , {"address" => {"zipcode" => "08106"}})
+
+Updates all documents with `zipcode` "08105" to "08106". Updates are __not__ limited to a single document.
+
+Indexes are managed in the same way than an `insert` operations, so that you can use `:exclude_fields_to_index` as options.
+
+If the update is a removal of a field, you must do it like this:
+
+  jor.restaurants.update({"_id" => 42}, {"address" => nil)
+  
+  
  
 ## Benchmarks
 
