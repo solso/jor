@@ -37,8 +37,7 @@ module JOR
             
       docs.is_a?(Array) ? docs_list = docs : docs_list = [docs]
     
-      docs_list.each_with_index do |doc, i|
-        
+      docs_list.each_with_index do |doc, i|     
         if auto_increment?
           raise DocumentDoesNotNeedId.new(name) unless doc["_id"].nil?
           doc["_id"] = next_id()
@@ -176,7 +175,7 @@ module JOR
       end
          
       ## if doc contains _id it ignores the rest of the doc's fields
-      if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash)
+      if !doc["_id"].nil? && !doc["_id"].kind_of?(Hash) && doc.size==1
         ids << doc["_id"]
         return [] if opt[:only_ids]==true && redis.get(doc_key(ids.first)).nil?
       elsif (doc == {})
@@ -307,7 +306,7 @@ module JOR
     end
 
     def find_type(obj)
-      [String, Numeric, Time].each do |type|
+      [String, Numeric, TrueClass, FalseClass].each do |type|
         return type if obj.kind_of? type
       end
       raise TypeNotSupported.new(obj.class)
@@ -332,10 +331,8 @@ module JOR
           rmax = "(#{path["obj"]["$lt"]}" unless path["obj"]["$lt"].nil?
           
           ##ZRANGEBYSCORE zset (5 (10 : 5 < x < 10          
-          return redis.zrangebyscore(key,rmin,rmax)
-          
+          return redis.zrangebyscore(key,rmin,rmax)     
         elsif type == :sets
-          
           if path["obj"]["$in"]
             target = path["obj"]["$in"]
             join_set = []
@@ -359,24 +356,29 @@ module JOR
         end   
       end
       
+      ## ZZ needs refactoring
       if path["obj"].kind_of?(String)
         return redis.smembers(idx_key(path["path_to"], String, path["obj"])).sort
+      elsif path["obj"].kind_of?(TrueClass)
+        return redis.smembers(idx_key(path["path_to"], TrueClass, path["obj"])).sort
+      elsif path["obj"].kind_of?(FalseClass)
+        return redis.smembers(idx_key(path["path_to"], FalseClass, path["obj"])).sort
       elsif path["obj"].kind_of?(Numeric)
         return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"])).sort
+      elsif path["obj"].kind_of?(NilClass)
+        return []
       else
-        raise TypeNotSupported.new(value.class)
+        raise TypeNotSupported.new(path["obj"].class)
       end
         
     end
     
     def delete_by_id(id)
-      indexes = redis.smembers(idx_set_key(id))
-      
+      indexes = redis.smembers(idx_set_key(id)) 
       redis.pipelined do
         indexes.each do |index|
           remove_index(index, id)
         end
-      
         redis.del(idx_set_key(id))
         redis.zrem(doc_sset_key(),id)
         redis.del(doc_key(id))
@@ -394,6 +396,7 @@ module JOR
     end
         
     def add_index(path, id)
+      ## ZZ needs refactoring
       if path["obj"].kind_of?(String)
         key = idx_key(path["path_to"], String, path["obj"])
         redis.sadd(key, id)
@@ -405,6 +408,14 @@ module JOR
         key = idx_key(path["path_to"], Numeric)
         redis.zadd(key, path["obj"], id)
         redis.sadd(idx_set_key(id), "#{key}_zrem")
+      elsif path["obj"].kind_of?(TrueClass)
+        key = idx_key(path["path_to"], TrueClass, path["obj"])
+        redis.sadd(key, id)
+        redis.sadd(idx_set_key(id), "#{key}_srem")        
+      elsif path["obj"].kind_of?(FalseClass)
+        key = idx_key(path["path_to"], FalseClass, path["obj"])
+        redis.sadd(key, id)
+        redis.sadd(idx_set_key(id), "#{key}_srem")          
       elsif path["obj"].kind_of?(NilClass)
         ## do nothing, don't try to index but don't raise
         ## exception either
@@ -421,7 +432,9 @@ module JOR
   
       end_pos = index.index("/String")
       end_pos = index.index("/Numeric") if end_pos.nil?
-        
+      end_pos = index.index("/TrueClass") if end_pos.nil?
+      end_pos = index.index("/FalseClass") if end_pos.nil?
+      
       raise CouldNotFindPathToFromIndex.new(index) if ini_pos.nil? || end_pos.nil?
       end_pos -= 1
           

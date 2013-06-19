@@ -688,7 +688,6 @@ class CollectionTest < JOR::Test::Unit::TestCase
   end
   
   def test_created_and_update_at
-    
     start_time = Time.now.to_f
     sample_docs = []
     5.times do |i|
@@ -725,6 +724,70 @@ class CollectionTest < JOR::Test::Unit::TestCase
     @jor.test.delete({"_created_at" => {"$lte" => start_time}})
     docs = @jor.test.find({})
     assert_equal 5, docs.size()
+  end
+  
+  def test_boolean_fields
+    
+    doc = @jor.test.insert({"_id" => 1, "foo" => "bar", "is_true" => true, "is_false" => false})
+    assert_equal true, doc["is_true"]
+    assert_equal false, doc["is_false"]
+    
+    doc = @jor.test.insert({"_id" => 2, "foo" => "bar", "is_true" => true, "is_false" => false})
+    assert_equal true, doc["is_true"]
+    assert_equal false, doc["is_false"]
+        
+    docs = @jor.test.find({})
+    assert_equal 2, docs.size
+    assert_equal true, docs.first["is_true"]
+    assert_equal false, docs.first["is_false"]
+    assert_equal true, docs.last["is_true"]
+    assert_equal false, docs.last["is_false"]
+    
+    docs = @jor.test.find({"_id" => 2, "is_true" => true})
+    assert_equal 1, docs.size
+    assert_equal 2, docs.first["_id"]
+    assert_equal true, docs.first["is_true"]
+    assert_equal false, docs.first["is_false"]
+    
+    docs = @jor.test.find({"_id" => 2, "foo" => "not_bar"})
+    assert_equal 0, docs.size
+    
+    docs = @jor.test.find({"is_false" => false})
+    assert_equal 2, docs.size
+
+    docs = @jor.test.find({"_id" => 2, "is_true" => false})
+    assert_equal 0, docs.size
+
+    docs = @jor.test.find({"_id" => 2, "is_true" => "false"})
+    assert_equal 0, docs.size
+
+    docs = @jor.test.find({"_id" => 2, "is_true" => "true"})
+    assert_equal 0, docs.size
+
+    docs = @jor.test.find({"_id" => 2, "is_true" => nil})
+    assert_equal 0, docs.size
+    
+    docs = @jor.test.update({"_id" => 2, "is_true" => true}, {"is_true" => false})
+    assert_equal 1, docs.size
+    assert_equal false, docs.first["is_true"]
+    
+    docs = @jor.test.find({"_id" => 2})
+    assert_equal 1, docs.size
+    assert_equal 2, docs.first["_id"]
+    assert_equal false, docs.first["is_true"]
+    assert_equal false, docs.first["is_false"]
+    
+    docs = @jor.test.find({"is_true" => {"$in" => [true, false]}})
+    assert_equal 2, docs.size
+    assert_equal true, docs.first["is_true"]
+    assert_equal false, docs.first["is_false"]
+    assert_equal 1, docs.first["_id"]
+    assert_equal false, docs.last["is_true"]
+    assert_equal false, docs.last["is_false"]
+    assert_equal 2, docs.last["_id"]
+    
+    docs = @jor.test.find({"is_true" => {"$all" => [true, false]}})
+    assert_equal 0, docs.size 
   end
 
 end
