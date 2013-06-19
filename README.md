@@ -142,6 +142,13 @@ The `_id` must be a natural number (>=0), remember that you only need to define 
 
 By the way, field names cannot start with `'` or with `$`. These characters are reserved.
 
+There are two other special fields:
+
+* `_created_at`: it is set when inserting a document, and should not changed ever again. The field is indexed by default.
+* `_updated_at`: it is set every time the document is updated. Also indexed by default. 
+
+Both times are unix epoch time in milli-seconds (the decimal part).
+
 #### Options:
 
 `:exclude_fields_to_index`
@@ -284,10 +291,7 @@ Real benchmarks are more than welcomed.
 
 ## To Do
 
-* Add update primitive
-* Create built in fields `_created_at` and `_updated_at` for each document
 * normalize indexed strings (downcase, trimmed, something else) so that at least the == on a string is case insensitive. Tokenizing a string is easy to do, but can affect performance O(#fields + #words_on_string_fields). Perhaps as an option.
-
 
 ## Contribute
 

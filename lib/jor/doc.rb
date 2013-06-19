@@ -9,7 +9,7 @@ module JOR
           if JOR::Storage::SELECTORS_ALL.member?(k)
             return [{"path_to" => path, "obj" => h, "class" => h.class, "selector" => true}]
           else
-            raise InvalidFieldName.new(k) if (k!="_id") && (k[0]=="_" || k[0]=="$")
+            raise InvalidFieldName.new(k) if ((k!="_id") && (k!="_created_at") && (k!="_updated_at")) && (k[0]=="_" || k[0]=="$")
             v << paths("#{path}/#{k}",val)
           end
         end

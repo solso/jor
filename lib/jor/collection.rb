@@ -44,7 +44,9 @@ module JOR
           doc["_id"] = next_id()
         else
           raise DocumentNeedsId.new(name) if doc["_id"].nil?
-        end  
+        end
+        
+        doc["_created_at"] ||= Time.now.to_f
         
         encd = JSON::generate(doc)
         paths = Doc.paths("!",doc)
@@ -92,6 +94,7 @@ module JOR
       doc_source.delete("_id") unless doc_source["_id"].nil?
       opt = merge_and_symbolize_options(options)
       
+      doc_source["_updated_at"] = Time.now.to_f 
       paths_all = Doc.paths("!",doc_source)
       excluded_paths = []
       

@@ -625,26 +625,27 @@ class CollectionTest < JOR::Test::Unit::TestCase
     
     @jor.test.update({"_id" => 42}, {"address" => {"zipcode" => nil}})
     docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
-    assert_equal 0, docs.size()
+    assert_equal 0, docs.size
     
     indexes_after =  @jor.test.indexes(42)
-    assert_equal indexes_before.size() - 1, indexes_after.size()
+    ## -1  because we removed address/zipcode, but plus 1 because now _updated_at exists
+    assert_equal indexes_before.size, indexes_after.size
     indexes_after.each do |item|  
       assert_equal false, ["/address/zipcode"].include?(item["path"])
     end
     
     
     docs = @jor.test.find({"_id" => 42})
-    assert_equal 1, docs.size()
+    assert_equal 1, docs.size
     assert_equal "Ann Arbor", docs.first["address"]["city"]
     assert_equal "Main St 100", docs.first["address"]["address"]
 
     @jor.test.update({"_id" => 42}, {"address" => nil})
     docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
-    assert_equal 0, docs.size()
-    
+    assert_equal 0, docs.size
+        
     indexes_after =  @jor.test.indexes(42)
-    assert_equal indexes_before.size - 3, indexes_after.size
+    assert_equal indexes_before.size - 2, indexes_after.size
     
     indexes_after.each do |item|  
       assert_equal false, ["/address/zipcode", "/address/address", "/address/city"].include?(item["path"])
@@ -686,6 +687,44 @@ class CollectionTest < JOR::Test::Unit::TestCase
     
   end
   
+  def test_created_and_update_at
+    
+    start_time = Time.now.to_f
+    sample_docs = []
+    5.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => [1,2,3,4,5], "year" => 2000+i })
+    end
+    end_time = Time.now.to_f
   
+    sample_docs.each do |d|
+      assert_equal true, d["_created_at"]>=start_time && d["_created_at"]<=end_time
+    end
+    
+    docs = @jor.test.find({})
+    docs.each do |d|
+      assert_equal true, d["_created_at"]>=start_time && d["_created_at"]<=end_time
+      assert_equal nil, d["_updated_at"]
+    end
+    
+    @jor.test.insert({"_id" => 42, "name" => "foo_#{42}", "foo" => [1,2,3,4,5], "year" => 2000+42, "_created_at" => start_time})
+    docs = @jor.test.find({"_id" => 42})
+    assert_equal start_time, docs.first["_created_at"]
+    
+    start_time2 = Time.now.to_f
+    @jor.test.update({},{"updated" => "yeah"})
+    end_time2 = Time.now.to_f
+    
+    docs = @jor.test.find({})
+    docs.each do |d|
+      assert_equal true, d["_created_at"]>=start_time && d["_created_at"]<=end_time
+      assert_equal true, d["_updated_at"]>=start_time2 && d["_updated_at"]<=end_time2
+    end
+    
+    assert_equal 6, docs.size()
+    
+    @jor.test.delete({"_created_at" => {"$lte" => start_time}})
+    docs = @jor.test.find({})
+    assert_equal 5, docs.size()
+  end
 
 end
