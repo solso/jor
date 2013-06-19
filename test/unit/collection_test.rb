@@ -312,6 +312,18 @@ class CollectionTest < JOR::Test::Unit::TestCase
     @jor.test.insert(create_sample_doc_restaurant({"_id" => 42}), 
       {:excluded_fields_to_index => {}})
 
+    v = []
+    @jor.test.indexes(1).each do |ind|
+      v << ind["path"]
+    end
+    assert_equal false, v.include?("/description")
+
+    v = []
+    @jor.test.indexes(42).each do |ind|
+      v << ind["path"]
+    end
+    assert_equal true, v.include?("/description")
+
     res = @jor.test.find({},{:reversed => true})
     assert_equal 2, res.size
     assert_equal "very long description that we might not want to index", res.first["description"]
