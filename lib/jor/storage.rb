@@ -55,6 +55,23 @@ module JOR
       end
     end
     
+    def info
+      res = {}
+      ri = redis.info
+      
+      res["used_memory_in_redis"] = ri["used_memory"].to_i
+      res["num_collections"] = collections.size
+      
+      res["collections"] = {}
+      collections.each do |k, c|
+        res["collections"][c.name] = {}
+        res["collections"][c.name]["num_documents"] = c.count
+        res["collections"][c.name]["auto_increment"] = c.auto_increment?
+      end
+      
+      res
+    end
+    
     protected
     
     def reload_collections 

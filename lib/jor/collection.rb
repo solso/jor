@@ -241,16 +241,39 @@ module JOR
       end
     end
     
+    def next_id
+      redis.incrby("#{Storage::NAMESPACE}/#{name}/next_id",1)
+    end
+    
+    def indexes(id)
+      indexes = redis.smembers(idx_set_key(id))
+      res = []
+      indexes.each do |ind|
+        v = ind.split("!")
+        str = v[1..v.size].join("!")
+        
+        v = str.split("/")
+        type = v[v.size-2]
+        path = v[0..v.size-3].join("/")
+        
+        if path!=""
+          value_tmp = v[v.size-1]
+          w = value_tmp.split("_")
+          value = w[0..w.size-2].join("_")
+          ## returns the value of a Numeric as string, to cast to float or int, cannot
+          ## be derived from type because it Numeric  
+          res << {"path" => path, "obj" => type, "value" => value}
+        end  
+      end
+      return res
+    end
+    
     protected
     
     def merge_and_symbolize_options(options = {})
       DEFAULT_OPTIONS.merge(options.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo})
     end
         
-    def next_id
-      redis.incrby("#{Storage::NAMESPACE}/#{name}/next_id",1)
-    end
-    
     def find_docs(doc)
       return [doc["_id"]] if !doc["_id"].nil?
     
@@ -388,7 +411,8 @@ module JOR
     end
     
     def get_path_to_from_index(index)
-      
+      ## this traverses all indexes, Numeric fields have two actual indexes that do not
+      ## appear on the indexes method
       ini_pos = index.index("/!")
       ini_pos += 1
   

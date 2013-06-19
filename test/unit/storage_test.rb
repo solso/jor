@@ -92,5 +92,27 @@ class StorageTest < JOR::Test::Unit::TestCase
     end
     assert_equal 100, @jor.cs.count()
   end
+  
+  def test_info
+    @jor.create_collection("restaurant")
+    @jor.create_collection("cs")
+    
+    1000.times do |i|
+      @jor.cs.insert(create_sample_doc_cs({"_id" => i})) 
+    end
+    
+    2000.times do |i|
+      @jor.restaurant.insert(create_sample_doc_restaurant({"_id" => i}),
+          {:excluded_fields_to_index => {"description" => true}})
+    end
+  
+    info = @jor.info
+    assert_equal true, info["used_memory_in_redis"] > 0 
+    assert_equal 2, info["num_collections"]
+    assert_equal 2000, info["collections"]["restaurant"]["num_documents"]
+    assert_equal false, info["collections"]["restaurant"]["auto_increment"]
+    assert_equal 1000, info["collections"]["cs"]["num_documents"]
+    assert_equal false, info["collections"]["cs"]["auto_increment"]    
+  end
        
 end

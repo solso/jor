@@ -608,15 +608,19 @@ class CollectionTest < JOR::Test::Unit::TestCase
     @jor.test.insert(create_sample_doc_restaurant({"_id" => 42}))
     docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
     assert_equal 1, docs.size()
-    indexes_before = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
-
+    
+    indexes_before = @jor.test.indexes(42)
+    
     @jor.test.update({"_id" => 42}, {"address" => {"zipcode" => nil}})
     docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
     assert_equal 0, docs.size()
     
-    indexes_after = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
-    assert_equal indexes_before.size() -1, indexes_after.size()
-    assert_equal false, indexes_after.include?("jor/test/idx/!/address/zipcode/String/08104_srem")
+    indexes_after =  @jor.test.indexes(42)
+    assert_equal indexes_before.size() - 1, indexes_after.size()
+    indexes_after.each do |item|  
+      assert_equal false, ["/address/zipcode"].include?(item["path"])
+    end
+    
     
     docs = @jor.test.find({"_id" => 42})
     assert_equal 1, docs.size()
@@ -627,12 +631,13 @@ class CollectionTest < JOR::Test::Unit::TestCase
     docs = @jor.test.find({"address" => {"zipcode" => "08104"}})
     assert_equal 0, docs.size()
     
-    indexes_after = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,42))
-    assert_equal indexes_before.size() - 3, indexes_after.size()
-    assert_equal false, indexes_after.include?("jor/test/idx/!/address/zipcode/String/08104_srem")
-    assert_equal false, indexes_after.include?("jor/test/idx/!/address/address/String/Main St 100_srem")
-    assert_equal false, indexes_after.include?("jor/test/idx/!/address/city/String/Ann Arbor_srem")
-
+    indexes_after =  @jor.test.indexes(42)
+    assert_equal indexes_before.size - 3, indexes_after.size
+    
+    indexes_after.each do |item|  
+      assert_equal false, ["/address/zipcode", "/address/address", "/address/city"].include?(item["path"])
+    end
+    
   end
   
   def test_update_arrays
@@ -662,13 +667,10 @@ class CollectionTest < JOR::Test::Unit::TestCase
     assert_equal 1, docs.size()
     assert_equal nil, docs.first["foo"]
     
-    indexes = @jor.test.redis.smembers(@jor.test.send(:idx_set_key,4))
+    assert_equal  0, ([{"path"=>"/name", "obj"=>"String", "value"=>"foo_4"},
+                    {"path"=>"/_id", "obj"=>"Numeric", "value"=>"4"},
+                    {"path"=>"/year", "obj"=>"Numeric", "value"=>"2004"}] - @jor.test.indexes(4)).size
     
-    assert_equal ["jor/test/idx/!/name/String/foo_4_srem",
-                  "jor/test/idx/!/_id/Numeric/4_zrem",
-                  "jor/test/idx/!/year/Numeric_zrem",
-                  "jor/test/idx/!/year/Numeric/2004_zrem",
-                  "jor/test/idx/!/_id/Numeric_zrem"].sort, indexes.sort
     
   end
   

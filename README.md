@@ -259,6 +259,18 @@ If the update is a removal of a field, you must do it like this:
   
 Note that this will remove all the fields that hang from `address`, whether it is a value, array or a hash.    
   
+### Misc Operations
+
+You can find which document fields are indexed by doing,
+
+	jor.restaurants.indexes(doc_id)
+	
+This operation will return all fields that are indexed, but not all the indexes there are. Numeric fields, for instance, have two indexes.	
+  
+Also, you can get sysadmin related info,
+
+	jor.info()
+  
  
 ## Benchmarks
 
