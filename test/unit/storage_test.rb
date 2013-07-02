@@ -14,20 +14,20 @@ class StorageTest < JOR::Test::Unit::TestCase
   def test_create_collection
     @jor.create_collection("coll_foo")
     @jor.create_collection("coll_bar")
-    assert_equal ["coll_foo", "coll_bar"].sort, @jor.list_collections.sort
+    assert_equal ["coll_foo", "coll_bar"].sort, @jor.collections.sort
 
     @jor.create_collection("coll_zoe")
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.sort
 
     assert_raise JOR::CollectionAlreadyExists do
       @jor.create_collection("coll_zoe")
     end
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.sort
 
     assert_raise JOR::CollectionNotValid do
       @jor.create_collection("collections")
     end
-    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.list_collections.sort
+    assert_equal ["coll_foo", "coll_bar", "coll_zoe"].sort, @jor.collections.sort
 
   end
 
@@ -35,18 +35,18 @@ class StorageTest < JOR::Test::Unit::TestCase
     @jor.create_collection("coll_1")
     @jor.create_collection("coll_2")
     @jor.create_collection("coll_3")
-    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.list_collections.sort
+    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.collections.sort
 
     assert_raise JOR::CollectionDoesNotExist do
       @jor.destroy_collection("foo")
     end
-    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.list_collections.sort
+    assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.collections.sort
 
     @jor.destroy_collection("coll_1")
-    assert_equal ["coll_2", "coll_3"].sort, @jor.list_collections.sort
+    assert_equal ["coll_2", "coll_3"].sort, @jor.collections.sort
 
     @jor.destroy_all()
-    assert_equal [].sort, @jor.list_collections.sort
+    assert_equal [].sort, @jor.collections.sort
   end
 
   def test_collection_has_not_been_created_or_removed
@@ -126,9 +126,10 @@ class StorageTest < JOR::Test::Unit::TestCase
 
     @jor.destroy_all
 
-    assert_equal 0, @other_jor.restaurant.count()
+    assert_raise JOR::CollectionDoesNotExist do
+      @jor.restaurant.count()
+    end
 
-    @other_jor.reload_collections
     assert_raise JOR::CollectionDoesNotExist do
       @other_jor.restaurant.count()
     end

@@ -87,7 +87,7 @@ class ServerTest < JOR::Test::Unit::TestCase
     put '/create_collection', ["without_autoincrement", {:auto_increment => false}].to_json
     assert_equal 200, last_response.status
        
-    put '/list_collections', [].to_json
+    put '/collections', [].to_json
     assert_equal 200, last_response.status
     results = JSON::parse(last_response.body)
     

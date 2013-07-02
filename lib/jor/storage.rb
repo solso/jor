@@ -12,46 +12,38 @@ module JOR
 
     SELECTORS_ALL = SELECTORS.keys.inject([]) { |sel, element| sel | SELECTORS[element] }
 
-    def initialize(redis = nil)
-      @redis = Redis.new() if @redis.nil?
-      @collections = {}
-      reload_collections
+    def initialize(redis_client = nil)
+      redis_client.nil? ? @redis = Redis.new() : @redis = redis_client
     end
 
     def redis
       @redis
     end
-
+    
     def collections
-      @collections
-    end
-
-    def list_collections
-      collections.keys
+      redis.smembers("#{Storage::NAMESPACE}/collections")
     end
 
     def create_collection(name, options = {:auto_increment => false})
       options = {:auto_increment => false}.merge(options.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo})
-      raise CollectionNotValid.new(name) if self.respond_to?(name)
+      raise CollectionNotValid.new(name) if self.respond_to?(name)      
       is_new = redis.sadd("#{Storage::NAMESPACE}/collections",name)
-      raise CollectionAlreadyExists.new(name) if is_new==false or is_new==0
+      raise CollectionAlreadyExists.new(name) if (is_new==false or is_new==0)
       redis.set("#{Storage::NAMESPACE}/collection/#{name}/auto-increment", options[:auto_increment])
-      reload_collections
+      name
     end
 
     def destroy_collection(name)
-      raise CollectionDoesNotExist.new(name) unless @collections[name]
-      coll_to_be_removed = @collections[name]
-      redis.srem("#{Storage::NAMESPACE}/collections",name)
-      redis.del("#{Storage::NAMESPACE}/collection/#{name}/auto-increment")
-      reload_collections
-      coll_to_be_removed.delete({})
-      raise Exception.new("CRITICAL! Destroying the collection left some documents hanging") if coll_to_be_removed.count()!=0
+      v = redis.pipelined do
+        redis.srem("#{Storage::NAMESPACE}/collections",name)
+        redis.del("#{Storage::NAMESPACE}/collection/#{name}/auto-increment")
+      end
+      raise CollectionDoesNotExist.new(name) if (v[0]==false or v[0]==0)
+      name    
     end
 
     def destroy_all()
-      reload_collections
-      collections.keys.each do |col|
+      collections.each do |col|
         destroy_collection(col)
       end
     end
@@ -64,35 +56,33 @@ module JOR
       res["num_collections"] = collections.size
 
       res["collections"] = {}
-      collections.each do |k, c|
-        res["collections"][c.name] = {}
-        res["collections"][c.name]["num_documents"] = c.count
-        res["collections"][c.name]["auto_increment"] = c.auto_increment?
+      collections.each do |c|
+        coll = find_collection(c)
+        res["collections"][coll.name] = {}
+        res["collections"][coll.name]["num_documents"] = coll.count
+        res["collections"][coll.name]["auto_increment"] = coll.auto_increment?
       end
 
       res
     end
 
-    def reload_collections
-      coll = redis.smembers("#{Storage::NAMESPACE}/collections")
-      tmp_collections = {}
-      coll.each do |c|
-        redis_auto_incr = redis.get("#{Storage::NAMESPACE}/collection/#{c}/auto-increment")
-        redis_auto_incr=="true" ? auto_increment = true : auto_increment = false
-        tmp_collections[c] = Collection.new(self, c, auto_increment)
-      end
-      @collections = tmp_collections
-    end
-
     protected
 
     def method_missing(method)
-      if !collections[method.to_s].nil?
-        collections[method.to_s]
+      find_collection(method)
+    end
+        
+    def find_collection(method)
+      redis_auto_incr = redis.get("#{Storage::NAMESPACE}/collection/#{method}/auto-increment")
+      if (redis_auto_incr=="true")
+        auto_increment = true 
+      elsif (redis_auto_incr=="false")
+        auto_increment = false
       else
         raise CollectionDoesNotExist.new(method.to_s)
       end
-    end
+      Collection.new(self, method, auto_increment)
+    end  
 
   end
 end
