@@ -375,10 +375,12 @@ module JOR
     
     def delete_by_id(id)
       indexes = redis.smembers(idx_set_key(id)) 
-      redis.pipelined do
+      v = redis.pipelined do
         indexes.each do |index|
           remove_index(index, id)
         end
+        #require 'ruby-debug'
+        #debugger
         redis.del(idx_set_key(id))
         redis.zrem(doc_sset_key(),id)
         redis.del(doc_key(id))
@@ -392,6 +394,8 @@ module JOR
         redis.srem(key, id)
       elsif v.last=="zrem"
         redis.zrem(key, id)
+      else
+        raise UnknownIndex.new(index,id)
       end
     end
         
@@ -404,7 +408,7 @@ module JOR
       elsif path["obj"].kind_of?(Numeric)
         key = idx_key(path["path_to"], Numeric, path["obj"])
         redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), "#{key}_zrem")
+        redis.sadd(idx_set_key(id), "#{key}_srem")
         key = idx_key(path["path_to"], Numeric)
         redis.zadd(key, path["obj"], id)
         redis.sadd(idx_set_key(id), "#{key}_zrem")

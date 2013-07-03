@@ -34,11 +34,12 @@ module JOR
     end
 
     def destroy_collection(name)
-      v = redis.pipelined do
+      coll_to_be_removed = find_collection(name)
+      coll_to_be_removed.delete({})
+      redis.pipelined do
         redis.srem("#{Storage::NAMESPACE}/collections",name)
         redis.del("#{Storage::NAMESPACE}/collection/#{name}/auto-increment")
       end
-      raise CollectionDoesNotExist.new(name) if (v[0]==false or v[0]==0)
       name    
     end
 

@@ -87,4 +87,10 @@ module JOR
     end
   end
   
+  class CouldNotFindPathToFromIndex  < Error
+    def initialize(index, id)
+      super %(Unknown index #{index} in document #{id})
+    end
+  end
+  
 end 
