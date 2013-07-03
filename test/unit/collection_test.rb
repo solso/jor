@@ -48,10 +48,9 @@ class CollectionTest < JOR::Test::Unit::TestCase
   end
   
   def test_delete
-    ## MUST ALSO TEST THAT NO KEYS ARE LEFT HANGING 
     sample_docs = []
     10.times do |i|
-      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i })
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "foo" => "bar", "year" => 2000+i, "num" => 666 })
     end
     
     assert_equal 10, @jor.test.count()
@@ -68,8 +67,19 @@ class CollectionTest < JOR::Test::Unit::TestCase
     assert_equal 3, @jor.test.delete({"year" => { "$lt" => 2004 }})
     assert_equal 6, @jor.test.count()
     
-    assert_equal 6, @jor.test.delete({"foo" => "bar"})     
-    assert_equal 0, @jor.test.count()      
+    assert_equal ["4","5","6","7","8","9"].sort, @jor.redis.smembers("jor/test/idx/!/foo/String/bar").sort
+    assert_equal ["4","5","6","7","8","9"].sort, @jor.redis.smembers("jor/test/idx/!/num/Numeric/666").sort
+    assert_equal ["4","5","6","7","8","9"].sort, @jor.redis.zrange("jor/test/idx/!/num/Numeric",0,-1).sort
+    
+    assert_equal 6, @jor.test.delete({"foo" => "bar"})
+    assert_equal 0, @jor.test.count()
+    
+    assert_equal [], @jor.redis.smembers("jor/test/idx/!/num/String/bar")
+    assert_equal [], @jor.redis.smembers("jor/test/idx/!/num/Numeric/666")
+    assert_equal [].sort, @jor.redis.zrange("jor/test/idx/!/num/Numeric",0,-1).sort
+    
+    assert_equal @jor.redis.keys("jor/test/idx/*"), []
+    
   end
   
   def test_find_exact_string

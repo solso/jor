@@ -356,21 +356,12 @@ module JOR
         end   
       end
       
-      ## ZZ needs refactoring
-      if path["obj"].kind_of?(String)
-        return redis.smembers(idx_key(path["path_to"], String, path["obj"])).sort
-      elsif path["obj"].kind_of?(TrueClass)
-        return redis.smembers(idx_key(path["path_to"], TrueClass, path["obj"])).sort
-      elsif path["obj"].kind_of?(FalseClass)
-        return redis.smembers(idx_key(path["path_to"], FalseClass, path["obj"])).sort
-      elsif path["obj"].kind_of?(Numeric)
-        return redis.smembers(idx_key(path["path_to"], Numeric, path["obj"])).sort
-      elsif path["obj"].kind_of?(NilClass)
-        return []
-      else
-        raise TypeNotSupported.new(path["obj"].class)
+      [String, Numeric, TrueClass, FalseClass].each do |type|
+        if path["obj"].kind_of?(type)
+          return redis.smembers(idx_key(path["path_to"], type, path["obj"])).sort
+        end
       end
-        
+      path["obj"].kind_of?(NilClass) ? [] : (raise TypeNotSupported.new(path["obj"].class))
     end
     
     def delete_by_id(id)
@@ -399,33 +390,21 @@ module JOR
       end
     end
         
-    def add_index(path, id)
-      ## ZZ needs refactoring
-      if path["obj"].kind_of?(String)
-        key = idx_key(path["path_to"], String, path["obj"])
-        redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), "#{key}_srem")
-      elsif path["obj"].kind_of?(Numeric)
-        key = idx_key(path["path_to"], Numeric, path["obj"])
-        redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), "#{key}_srem")
-        key = idx_key(path["path_to"], Numeric)
-        redis.zadd(key, path["obj"], id)
-        redis.sadd(idx_set_key(id), "#{key}_zrem")
-      elsif path["obj"].kind_of?(TrueClass)
-        key = idx_key(path["path_to"], TrueClass, path["obj"])
-        redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), "#{key}_srem")        
-      elsif path["obj"].kind_of?(FalseClass)
-        key = idx_key(path["path_to"], FalseClass, path["obj"])
-        redis.sadd(key, id)
-        redis.sadd(idx_set_key(id), "#{key}_srem")          
-      elsif path["obj"].kind_of?(NilClass)
-        ## do nothing, don't try to index but don't raise
-        ## exception either
-      else
-        raise TypeNotSupported.new(path["obj"].class)
+    def add_index(path, id)      
+      [String, Numeric, TrueClass, FalseClass].each do |type|
+        if path["obj"].kind_of?(type)
+          key = idx_key(path["path_to"], type, path["obj"])
+          redis.sadd(key, id)
+          redis.sadd(idx_set_key(id), "#{key}_srem")
+          if type==Numeric 
+            key = idx_key(path["path_to"], type)
+            redis.zadd(key, path["obj"], id)
+            redis.sadd(idx_set_key(id), "#{key}_zrem")
+          end
+          return true
+        end
       end
+      path["obj"].kind_of?(NilClass) ? true : (raise TypeNotSupported.new(path["obj"].class))
     end
     
     def get_path_to_from_index(index)
