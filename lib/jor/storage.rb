@@ -6,8 +6,7 @@ module JOR
 
     SELECTORS = {
       :compare => ["$gt","$gte","$lt","$lte"],
-      :sets => ["$in","$all"],
-      :boolean => []
+      :sets => ["$in","$all","$not"]
     }
 
     SELECTORS_ALL = SELECTORS.keys.inject([]) { |sel, element| sel | SELECTORS[element] }

@@ -249,6 +249,92 @@ class CollectionTest < JOR::Test::Unit::TestCase
     
   end
   
+  def test_find_by_not_selector
+
+    sample_docs = []
+    ## years from 2000 to 2009
+    10.times do |i|
+      sample_docs << @jor.test.insert({"_id" => i, "name" => "foo_#{i}", "nested" => { "year" => 2000+i, "even" => ((i%2)==0 ? true : false)} })
+    end
+    
+    docs = @jor.test.find({"_id" => {"$not" => 3}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 3, doc["_id"]
+    end
+
+    docs = @jor.test.find({"_id" => {"$not" => [3]}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 3, doc["_id"]
+    end
+
+    docs = @jor.test.find({"_id" => {"$not" => [1, 3, 4, 42]}})
+    assert_equal 7, docs.size    
+    docs.each do |doc|
+      assert_not_equal 1, doc["_id"]
+      assert_not_equal 3, doc["_id"]
+      assert_not_equal 4, doc["_id"]
+      assert_not_equal 42, doc["_id"]
+    end
+
+    docs = @jor.test.find({"_id" => {"$not" => [3]}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 3, doc["_id"]
+    end
+
+    docs = @jor.test.find({"name" => {"$not" => "foo_3"}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 3, doc["_id"]
+    end
+
+    docs = @jor.test.find({"name" => {"$not" => ["foo_3"]}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 3, doc["_id"]
+    end
+
+    docs = @jor.test.find({"name" => {"$not" => ["foo_1", "foo_3", "foo_4", "foo_42"]}})
+    assert_equal 7, docs.size    
+    docs.each do |doc|
+      assert_not_equal 1, doc["_id"]
+      assert_not_equal 3, doc["_id"]
+      assert_not_equal 4, doc["_id"]
+      assert_not_equal 42, doc["_id"]
+    end
+
+    docs = @jor.test.find({"nested" => {"year" => {"$not" => 2004}}})
+    assert_equal 9, docs.size    
+    docs.each do |doc|
+      assert_not_equal 4, doc["_id"]
+    end
+
+    docs = @jor.test.find({"nested" => {"year" => {"$not" => [2004, 2009]}}})
+    assert_equal 8, docs.size    
+    docs.each do |doc|
+      assert_not_equal 4, doc["_id"]
+      assert_not_equal 9, doc["_id"]
+    end
+    
+    docs = @jor.test.find({"nested" => {"even" => true}})
+    assert_equal 5, docs.size    
+    docs.each do |doc|
+      assert_equal 0, doc["_id"]%2
+    end
+
+    docs = @jor.test.find({"nested" => {"even" => {"$not" => false}}})
+    assert_equal 5, docs.size    
+    docs.each do |doc|
+      assert_equal 0, doc["_id"]%2
+    end
+    
+    
+
+    
+  end   
+  
   def test_playing_with_find_options
     
     n = (JOR::Collection::DEFAULT_OPTIONS[:max_documents]+100)

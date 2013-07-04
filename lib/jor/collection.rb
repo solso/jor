@@ -314,11 +314,8 @@ module JOR
 
     def fetch_ids_by_index(path)
       
-      if path["selector"]==true
-        ## there is a selector
-        
+      if path["selector"]==true        
         type = check_selectors(path["obj"].keys)
-        
         if type == :compare
           key = idx_key(path["path_to"], find_type(path["obj"].values.first))
         
@@ -345,15 +342,23 @@ module JOR
             target = path["obj"]["$all"]
             target.each do |item|
               if join_set.size==0
-                join_set = redis.smembers(idx_key(path["path_to"], find_type(item), item))
+                join_set = redis.smembers(idx_key(path["path_to"], find_type(item), item)) 
               else
                 join_set = join_set & redis.smembers(idx_key(path["path_to"], find_type(item), item))
               end
               return [] if (join_set.nil? || join_set.size==0)
             end
             return join_set.sort
+          elsif !path["obj"]["$not"].nil?
+            target = path["obj"]["$not"]
+            target = [target] unless target.kind_of?(Array)
+            join_set = []
+            target.each do |item|
+              join_set = join_set | redis.smembers(idx_key(path["path_to"], find_type(item), item))
+            end
+            return (redis.zrange(doc_sset_key(),0,-1) - join_set).sort
           end
-        end   
+        end
       end
       
       [String, Numeric, TrueClass, FalseClass].each do |type|
@@ -370,8 +375,6 @@ module JOR
         indexes.each do |index|
           remove_index(index, id)
         end
-        #require 'ruby-debug'
-        #debugger
         redis.del(idx_set_key(id))
         redis.zrem(doc_sset_key(),id)
         redis.del(doc_key(id))
