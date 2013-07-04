@@ -13,6 +13,6 @@ module JOR
           @safe_to_remove = true
         end
       end
-    end  
+    end
   end
 end

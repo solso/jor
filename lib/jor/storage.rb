@@ -18,14 +18,14 @@ module JOR
     def redis
       @redis
     end
-    
+
     def collections
       redis.smembers("#{Storage::NAMESPACE}/collections")
     end
 
     def create_collection(name, options = {:auto_increment => false})
       options = {:auto_increment => false}.merge(options.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo})
-      raise CollectionNotValid.new(name) if self.respond_to?(name)      
+      raise CollectionNotValid.new(name) if self.respond_to?(name)
       is_new = redis.sadd("#{Storage::NAMESPACE}/collections",name)
       raise CollectionAlreadyExists.new(name) if (is_new==false or is_new==0)
       redis.set("#{Storage::NAMESPACE}/collection/#{name}/auto-increment", options[:auto_increment])
@@ -39,7 +39,7 @@ module JOR
         redis.srem("#{Storage::NAMESPACE}/collections",name)
         redis.del("#{Storage::NAMESPACE}/collection/#{name}/auto-increment")
       end
-      name    
+      name
     end
 
     def destroy_all()
@@ -71,18 +71,18 @@ module JOR
     def method_missing(method)
       find_collection(method)
     end
-        
+
     def find_collection(method)
       redis_auto_incr = redis.get("#{Storage::NAMESPACE}/collection/#{method}/auto-increment")
       if (redis_auto_incr=="true")
-        auto_increment = true 
+        auto_increment = true
       elsif (redis_auto_incr=="false")
         auto_increment = false
       else
         raise CollectionDoesNotExist.new(method.to_s)
       end
       Collection.new(self, method, auto_increment)
-    end  
+    end
 
   end
 end

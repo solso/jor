@@ -48,43 +48,43 @@ class StorageTest < JOR::Test::Unit::TestCase
     @jor.destroy_all()
     assert_equal [].sort, @jor.collections.sort
   end
-  
+
   def test_destroy_all_does_not_leave_documents_hanging
-    
+
     @jor.create_collection("coll_1")
     @jor.create_collection("coll_2")
     @jor.create_collection("coll_3")
-    
+
     @jor.coll_1.insert(create_sample_doc_restaurant({"_id" => 1}))
     @jor.coll_2.insert(create_sample_doc_restaurant({"_id" => 1}))
     @jor.coll_3.insert(create_sample_doc_restaurant({"_id" => 1}))
-    
+
     assert_equal true, @jor.redis.keys("jor/coll_1/*").size > 0
     assert_equal true, @jor.redis.keys("jor/coll_2/*").size > 0
     assert_equal true, @jor.redis.keys("jor/coll_3/*").size > 0
-    assert_equal true, @jor.redis.keys("jor/collection/*").size > 0 
-    
+    assert_equal true, @jor.redis.keys("jor/collection/*").size > 0
+
     assert_equal ["coll_1", "coll_2", "coll_3"].sort, @jor.collections.sort
-    
+
     keys_clean = []
     keys_from_index = @jor.redis.smembers(@jor.coll_1.send(:idx_set_key,1))
     keys_from_index.each do |key|
       keys_clean << key.gsub("_zrem","").gsub("_srem","")
     end
-    
+
     assert_equal @jor.redis.keys("jor/coll_1/idx/*").sort, keys_clean.sort
-                 
+
     @jor.destroy_all()
-        
+
     assert_equal [], @jor.collections
-    
+
     puts @jor.redis.keys("*")
-    
+
     assert_equal 0, @jor.redis.keys("jor/coll_1/*").size
     assert_equal 0, @jor.redis.keys("jor/coll_2/*").size
     assert_equal 0, @jor.redis.keys("jor/coll_3/*").size
     assert_equal 0, @jor.redis.keys("jor/collection/*").size
-                
+
   end
 
   def test_collection_has_not_been_created_or_removed

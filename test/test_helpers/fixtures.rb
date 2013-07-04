@@ -1,6 +1,6 @@
 module TestHelpers
   module Fixtures
-    
+
     def create_sample_doc_cs(partial_doc = {})
       doc = {
         "_id" => 1,
@@ -64,7 +64,7 @@ module TestHelpers
       }
       doc.merge(partial_doc)
     end
-    
+
   end
 end
 
